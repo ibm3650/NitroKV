@@ -1,0 +1,52 @@
+function(nitrokv_enable_sanitizers target)
+	if(NITROKV_ENABLE_ASAN AND NITROKV_ENABLE_TSAN)
+		message(FATAL_ERROR "AddressSanitizer (ASAN) and ThreadSanitizer (TSAN) cannot be enabled simultaneously.")
+	endif()
+
+	if(MINGW)
+		message("MINGW ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} compiler does not support sanitizers")
+		return()
+	elseif(MSVC)
+		if(NITROKV_ENABLE_TSAN OR NITROKV_ENABLE_UBSAN)
+			message(WARNING "MSVC currently supports only AddressSanitizer (ASAN). TSAN/UBSAN will be ignored.")
+		endif()
+
+		if(NITROKV_ENABLE_ASAN)
+			target_compile_options(${target} PRIVATE /fsanitize=address /Zi )
+			target_link_options(${target} PRIVATE /fsanitize=address /INCREMENTAL:NO)
+
+			set_property(TARGET ${target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+			get_target_property(TARGET_OPTIONS ${target} COMPILE_OPTIONS)
+			if(TARGET_OPTIONS)
+				list(REMOVE_ITEM TARGET_OPTIONS /RTC1)
+				list(REMOVE_ITEM TARGET_OPTIONS /ZI)
+				list(REMOVE_ITEM TARGET_OPTIONS /INCREMENTAL)
+				set_target_properties(${target} PROPERTIES COMPILE_OPTIONS "${TARGET_OPTIONS}")
+			endif()
+		endif()
+		return()
+	endif()
+
+	if(NITROKV_ENABLE_TSAN)
+		target_compile_options(${target} PRIVATE -fsanitize=thread)
+		target_link_options(${target} PRIVATE -fsanitize=thread)
+		return()
+	endif()
+
+	set(SAN_FLAGS "")
+
+	if(NITROKV_ENABLE_ASAN)
+		list(APPEND SAN_FLAGS address)
+	endif()
+
+	if(NITROKV_ENABLE_UBSAN)
+		list(APPEND SAN_FLAGS undefined)
+	endif()
+
+	if(SAN_FLAGS)
+		string(REPLACE ";" "," SAN_FLAGS_STR "${SAN_FLAGS}")
+		target_compile_options(${target} PRIVATE -fsanitize=${SAN_FLAGS_STR} -fno-omit-frame-pointer)
+		target_link_options(${target} PRIVATE -fsanitize=${SAN_FLAGS_STR})
+	endif()
+endfunction()

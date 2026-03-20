@@ -1,0 +1,105 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+InsertNewlineAtEOF: true
+
+
+AccessModifierOffset: -4
+EmptyLineBeforeAccessModifier: LogicalBlock
+EmptyLineAfterAccessModifier: Never
+
+
+NamespaceIndentation: None
+CompactNamespaces: false
+
+
+IndentCaseLabels: true
+IndentCaseBlocks: false
+IndentGotoLabels: true
+
+
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+
+BreakBeforeBraces: Attach
+BreakAfterReturnType: Automatic
+BreakTemplateDeclarations: MultiLine
+BreakBeforeTernaryOperators: false
+
+
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: CurrentLine
+
+
+BinPackArguments: true
+BinPackParameters: OnePerLine
+
+
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignOperands: Align
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+
+
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*'
+    Priority: 1
+  - Regex: '^".*'
+    Priority: 2
+  - Regex: '.*'
+    Priority: 3
+IncludeIsMainRegex: '([-_](test|unittest))?$'
+
+
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCtorInitializerColon: false
+SpaceBeforeInheritanceColon: false
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: Never
+SpacesInSquareBrackets: false
+
+
+SpacesInParens: Custom
+SpacesInParensOptions:
+  InConditionalStatements: false
+  InCStyleCasts: false
+  InEmptyParentheses: false
+  Other: false
+  ExceptDoubleParentheses: false
+
+
+StatementMacros:
+  - PT_BEGIN
+  - PT_END
+  - PT_WAIT_UNTIL
+  - PT_YIELD
+  - PT_EXIT
+
+
+MaxEmptyLinesToKeep: 2
+...

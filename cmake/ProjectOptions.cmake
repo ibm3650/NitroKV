@@ -1,0 +1,7 @@
+function(nitrokv_setup_options)
+	option(NITROKV_ENABLE_ASAN "Enable AddressSanitizer" ON)
+	option(NITROKV_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+	option(NITROKV_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+	option(NITROKV_ENABLE_CLANG_TIDY "Enable clang-tidy" OFF)
+	option(NITROKV_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
+endfunction()
