@@ -1,12 +1,11 @@
 #include <algorithm>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <limits>
 #include <random>
 #include <span>
 #include <string_view>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "nitrokv/protocol/encoding.hpp"
 #include "nitrokv/protocol/protocol.hpp"
@@ -44,26 +43,22 @@ ByteVec generate_random_bytes(std::size_t size) {
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(0, 255);
 
-    std::ranges::generate(result, [&]() {
-        return static_cast<std::byte>(dist(gen));
-    });
+    std::ranges::generate(result, [&]() { return static_cast<std::byte>(dist(gen)); });
 
     return result;
 }
 
-class RespEncodeTestBase : public ::testing::Test {
+class RespEncodeTestBase: public ::testing::Test {
 protected:
     ByteVec buffer_;
 
-    template <typename T>
-    void expect_encoded(const T& value, std::string_view expected_wire) {
+    template <typename T> void expect_encoded(const T& value, std::string_view expected_wire) {
         const bool success = proto::encode(value, buffer_);
         EXPECT_TRUE(success);
         EXPECT_EQ(buffer_, to_bytes(expected_wire));
     }
 
-    template <typename T>
-    void expect_encode_fail(const T& value) {
+    template <typename T> void expect_encode_fail(const T& value) {
         const ByteVec before = buffer_;
         const bool success = proto::encode(value, buffer_);
         EXPECT_FALSE(success);
@@ -75,13 +70,13 @@ protected:
     }
 };
 
-class RespIntegerEncodeTest : public RespEncodeTestBase {};
-class RespBulkStringEncodeTest : public RespEncodeTestBase {};
-class RespSimpleStringEncodeTest : public RespEncodeTestBase {};
-class RespArrayEncodeTest : public RespEncodeTestBase {};
-class RespErrorEncodeTest : public RespEncodeTestBase {};
-class RespNullEncodeTest : public RespEncodeTestBase {};
-class RespEncodeIntegrationTest : public RespEncodeTestBase {};
+class RespIntegerEncodeTest: public RespEncodeTestBase {};
+class RespBulkStringEncodeTest: public RespEncodeTestBase {};
+class RespSimpleStringEncodeTest: public RespEncodeTestBase {};
+class RespArrayEncodeTest: public RespEncodeTestBase {};
+class RespErrorEncodeTest: public RespEncodeTestBase {};
+class RespNullEncodeTest: public RespEncodeTestBase {};
+class RespEncodeIntegrationTest: public RespEncodeTestBase {};
 
 } // namespace
 
@@ -102,17 +97,11 @@ TEST_F(RespIntegerEncodeTest, EncodesZero) {
 }
 
 TEST_F(RespIntegerEncodeTest, EncodesMaxValue) {
-    expect_encoded(
-        std::numeric_limits<proto::RespEncInteger>::max(),
-        ":9223372036854775807\r\n"
-    );
+    expect_encoded(std::numeric_limits<proto::RespEncInteger>::max(), ":9223372036854775807\r\n");
 }
 
 TEST_F(RespIntegerEncodeTest, EncodesMinValue) {
-    expect_encoded(
-        std::numeric_limits<proto::RespEncInteger>::min(),
-        ":-9223372036854775808\r\n"
-    );
+    expect_encoded(std::numeric_limits<proto::RespEncInteger>::min(), ":-9223372036854775808\r\n");
 }
 
 // ==========================================
@@ -121,28 +110,20 @@ TEST_F(RespIntegerEncodeTest, EncodesMinValue) {
 
 TEST_F(RespBulkStringEncodeTest, EncodesSmallTextPayload) {
     constexpr std::string_view text = "NitroKV";
-    expect_encoded(
-        proto::RespEncBulkString{std::as_bytes(std::span{text})},
-        "$7\r\nNitroKV\r\n"
-    );
+    expect_encoded(proto::RespEncBulkString{std::as_bytes(std::span{text})}, "$7\r\nNitroKV\r\n");
 }
 
 TEST_F(RespBulkStringEncodeTest, EncodesEmptyPayload) {
     constexpr std::string_view text = "";
-    expect_encoded(
-        proto::RespEncBulkString{std::as_bytes(std::span{text})},
-        "$0\r\n\r\n"
-    );
+    expect_encoded(proto::RespEncBulkString{std::as_bytes(std::span{text})}, "$0\r\n\r\n");
 }
 
 TEST_F(RespBulkStringEncodeTest, AppendsToExistingBuffer) {
     set_buffer("*2\r\n");
 
     constexpr std::string_view text = "key";
-    const bool success = proto::encode(
-        proto::RespEncBulkString{std::as_bytes(std::span{text})},
-        buffer_
-    );
+    const bool success =
+        proto::encode(proto::RespEncBulkString{std::as_bytes(std::span{text})}, buffer_);
 
     EXPECT_TRUE(success);
     EXPECT_EQ(buffer_, to_bytes("*2\r\n$3\r\nkey\r\n"));
@@ -167,10 +148,8 @@ TEST_F(RespBulkStringEncodeTest, RejectsPayloadLargerThanLimit) {
     set_buffer("initial_state");
 
     constexpr std::size_t overflow_size = (512ULL * 1024 * 1024) + 1;
-    const std::span<const std::byte> fake_huge_payload(
-        static_cast<const std::byte*>(nullptr),
-        overflow_size
-    );
+    const std::span<const std::byte> fake_huge_payload(static_cast<const std::byte*>(nullptr),
+                                                       overflow_size);
 
     expect_encode_fail(proto::RespEncBulkString{fake_huge_payload});
 }
@@ -218,10 +197,7 @@ TEST_F(RespArrayEncodeTest, EncodesEmptyArray) {
 TEST_F(RespArrayEncodeTest, EncodesFlatMixedArray) {
     proto::RespEncArray array;
     array.emplace_back(
-        proto::RespEncValue{
-            proto::RespEncBulkString{std::as_bytes(std::span{"Nitro\r\n", 7})}
-        }
-    );
+        proto::RespEncValue{proto::RespEncBulkString{std::as_bytes(std::span{"Nitro\r\n", 7})}});
     array.emplace_back(proto::RespEncValue{proto::RespEncInteger{42}});
 
     const bool success = proto::encode(array, buffer_);
@@ -258,10 +234,8 @@ TEST_F(RespArrayEncodeTest, AppendsToExistingBuffer) {
 // ==========================================
 
 TEST_F(RespErrorEncodeTest, EncodesStandardError) {
-    expect_encoded(
-        proto::RespEncError{"ERR unknown command 'foobar'"},
-        "-ERR unknown command 'foobar'\r\n"
-    );
+    expect_encoded(proto::RespEncError{"ERR unknown command 'foobar'"},
+                   "-ERR unknown command 'foobar'\r\n");
 }
 
 TEST_F(RespErrorEncodeTest, EncodesEmptyError) {

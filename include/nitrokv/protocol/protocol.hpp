@@ -4,12 +4,12 @@
 
 #pragma once
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <variant>
 #include <vector>
-#include <span>
-#include <cstddef>
 
 namespace nitrokv::protocol {
 inline constexpr std::array SEPARATOR{'\r', '\n'};

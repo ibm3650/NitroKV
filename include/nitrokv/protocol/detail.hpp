@@ -33,4 +33,3 @@ std::span<char> integer_to_digits(const PureInteger auto val, std::span<char> bu
     return {buffer.data(), digits_last_ptr};
 }
 } // namespace nitrokv::protocol::detail
-

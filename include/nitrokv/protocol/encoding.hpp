@@ -7,11 +7,8 @@
 #include <cstdint>
 #include <vector>
 
-
 #include "nitrokv/protocol/protocol.hpp"
 namespace nitrokv::protocol {
-
-
 
 
 bool encode(RespEncInteger val, std::vector<std::byte>& buffer) noexcept;

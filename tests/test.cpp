@@ -7,6 +7,3 @@ TEST(SmokeTest, VersionIsDefined) {
     EXPECT_GE(nitrokv::common::version_minor, 0);
     EXPECT_GE(nitrokv::common::version_patch, 0);
 }
-
-
-
