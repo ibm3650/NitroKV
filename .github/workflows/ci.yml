@@ -1,10 +1,6 @@
 name: CI
 
-on:
-    push:
-        branches: [ master ]
-    pull_request:
-        branches: [ master ]
+on: [push, pull_request]
 
 jobs:
     build-and-test:
@@ -31,6 +27,14 @@ jobs:
 
             - name: Test
               run: ctest --preset ${{ matrix.preset }} --output-on-failure
+
+            - name: Upload Test Logs on Failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                name: ctest-log-${{ matrix.preset }}
+                path: build/${{ matrix.preset }}/Testing/Temporary/LastTest.log
+                retention-days: 5
 
     formatting:
         name: Check Formatting

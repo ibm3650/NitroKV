@@ -2,11 +2,13 @@ include(GoogleTest)
 
 add_executable(nitrokv_tests
 		test.cpp
+		protocol_parser.cpp
 )
 
 target_link_libraries(nitrokv_tests
 		PRIVATE
 		nitrokv_common
+		nitrokv_protocol
 		GTest::gtest_main
 )
 

@@ -3,6 +3,7 @@ target_include_directories(nitrokv_common
 		INTERFACE
 		${PROJECT_SOURCE_DIR}/include
 )
+add_subdirectory(protocol)
 
 add_executable(nitrokv_server
 		main.cpp
@@ -11,6 +12,7 @@ add_executable(nitrokv_server
 target_link_libraries(nitrokv_server
 		PRIVATE
 		nitrokv_common
+		nitrokv_protocol
 		fmt::fmt
 )
 

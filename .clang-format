@@ -44,11 +44,11 @@ BreakBeforeTernaryOperators: false
 
 
 BreakConstructorInitializers: AfterColon
-PackConstructorInitializers: CurrentLine
+PackConstructorInitializers: Never
 
 
 BinPackArguments: true
-BinPackParameters: OnePerLine
+BinPackParameters: false
 
 
 AlignConsecutiveAssignments: None

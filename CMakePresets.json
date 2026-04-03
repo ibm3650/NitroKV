@@ -7,45 +7,49 @@
     },
     "configurePresets": [
         {
-            "name": "dev-clang-debug",
-            "displayName": "Dev Clang Debug",
+            "name": ".base-dev",
+            "hidden": true,
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_CXX_COMPILER": "clang++",
-                "WHEELCACHE_ENABLE_ASAN": "OFF",
-                "WHEELCACHE_ENABLE_UBSAN": "OFF",
-                "WHEELCACHE_ENABLE_TSAN": "OFF",
-                "WHEELCACHE_ENABLE_CLANG_TIDY": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "BUILD_TESTING": "ON",
+                "NITROKV_ENABLE_CLANG_TIDY": "ON"
+            }
+        },
+        {
+            "name": "dev-clang-debug",
+            "displayName": "Dev Clang Debug",
+            "inherits": ".base-dev",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "NITROKV_ENABLE_ASAN": "OFF",
+                "NITROKV_ENABLE_UBSAN": "OFF",
+                "NITROKV_ENABLE_TSAN": "OFF"
             }
         },
         {
             "name": "dev-clang-asan",
             "displayName": "Dev Clang ASan+UBSan",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ".base-dev",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_COMPILER": "clang++",
-                "WHEELCACHE_ENABLE_ASAN": "ON",
-                "WHEELCACHE_ENABLE_UBSAN": "ON",
-                "WHEELCACHE_ENABLE_TSAN": "OFF",
-                "WHEELCACHE_ENABLE_CLANG_TIDY": "ON"
+                "NITROKV_ENABLE_ASAN": "ON",
+                "NITROKV_ENABLE_UBSAN": "ON",
+                "NITROKV_ENABLE_TSAN": "OFF"
             }
         },
         {
             "name": "dev-clang-tsan",
             "displayName": "Dev Clang TSan",
-            "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/${presetName}",
+            "inherits": ".base-dev",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_COMPILER": "clang++",
-                "WHEELCACHE_ENABLE_ASAN": "OFF",
-                "WHEELCACHE_ENABLE_UBSAN": "OFF",
-                "WHEELCACHE_ENABLE_TSAN": "ON",
-                "WHEELCACHE_ENABLE_CLANG_TIDY": "OFF"
+                "NITROKV_ENABLE_ASAN": "OFF",
+                "NITROKV_ENABLE_UBSAN": "OFF",
+                "NITROKV_ENABLE_TSAN": "ON",
+                "NITROKV_ENABLE_CLANG_TIDY": "OFF"
             }
         },
         {
@@ -56,10 +60,11 @@
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_CXX_COMPILER": "clang++",
-                "WHEELCACHE_ENABLE_ASAN": "OFF",
-                "WHEELCACHE_ENABLE_UBSAN": "OFF",
-                "WHEELCACHE_ENABLE_TSAN": "OFF",
-                "WHEELCACHE_ENABLE_CLANG_TIDY": "OFF"
+                "BUILD_TESTING": "OFF",
+                "NITROKV_ENABLE_ASAN": "OFF",
+                "NITROKV_ENABLE_UBSAN": "OFF",
+                "NITROKV_ENABLE_TSAN": "OFF",
+                "NITROKV_ENABLE_CLANG_TIDY": "OFF"
             }
         }
     ],
@@ -83,25 +88,30 @@
     ],
     "testPresets": [
         {
-            "name": "dev-clang-debug",
-            "configurePreset": "dev-clang-debug",
+            "name": ".test-base",
+            "hidden": true,
             "output": {
                 "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": false
             }
+        },
+        {
+            "name": "dev-clang-debug",
+            "configurePreset": "dev-clang-debug",
+            "inherits": ".test-base"
         },
         {
             "name": "dev-clang-asan",
             "configurePreset": "dev-clang-asan",
-            "output": {
-                "outputOnFailure": true
-            }
+            "inherits": ".test-base"
         },
         {
             "name": "dev-clang-tsan",
             "configurePreset": "dev-clang-tsan",
-            "output": {
-                "outputOnFailure": true
-            }
+            "inherits": ".test-base"
         }
     ]
 }
