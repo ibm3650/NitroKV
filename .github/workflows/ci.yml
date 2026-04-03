@@ -45,9 +45,9 @@ jobs:
             - name: Install clang-format
               run: |
                 sudo apt-get update
-                sudo apt-get install -y clang-format-18
+                sudo apt-get install -y clang-format-19
 
             - name: Check formatting
               run: |
                   find include src tests -type f \( -name '*.hpp' -o -name '*.cpp' \) -print0 | \
-                  xargs -0 clang-format-18 --dry-run --Werror
+                  xargs -0 clang-format-19 --dry-run --Werror
