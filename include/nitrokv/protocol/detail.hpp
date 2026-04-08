@@ -5,11 +5,13 @@
 #include <charconv>
 #include <concepts>
 #include <limits>
+#include <stdexcept>
 #include <span>
 
 #include "nitrokv/protocol/protocol.hpp"
 
 namespace nitrokv::protocol::detail {
+inline const auto SEP_BYTES = std::as_bytes(std::span(nitrokv::protocol::RESP_SEPARATOR));
 template <typename T>
 concept PureInteger =
     std::integral<T> && !std::same_as<T, bool> && !std::same_as<T, char> &&
@@ -32,4 +34,22 @@ std::span<char> integer_to_digits(const PureInteger auto val, std::span<char> bu
     }
     return {buffer.data(), digits_last_ptr};
 }
+
+template <typename T>
+bool reserve_space(const size_t additional_space, std::vector<T>& buffer) noexcept {
+    const size_t current_size = buffer.size();
+    if (current_size > std::numeric_limits<size_t>::max() - additional_space) {
+        return false;
+    }
+    try {
+        buffer.reserve(current_size + additional_space);
+    } catch (const std::length_error&) {
+        return false;
+    } catch (const std::bad_alloc&) {
+        return false;
+    }
+    return true;
+}
+
+
 } // namespace nitrokv::protocol::detail

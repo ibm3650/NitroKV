@@ -3,6 +3,7 @@
 //
 
 #include "nitrokv/protocol/encoding.hpp"
+#include "nitrokv/protocol/detail.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -12,30 +13,17 @@
 #include <vector>
 namespace {
 
-const auto SEP_BYTES = std::as_bytes(std::span(nitrokv::protocol::SEPARATOR));
+
 constexpr size_t MAX_DIGITS_IN_NUMBER = std::numeric_limits<int64_t>::digits10 + 2;
 constexpr size_t MAX_BULK_STRING_LENGTH = 512ULL * 1024U * 1024U;
 
 
-bool reserve_space(const size_t additional_space, std::vector<std::byte>& buffer) noexcept {
-    const size_t current_size = buffer.size();
-    if (current_size > std::numeric_limits<size_t>::max() - additional_space) {
-        return false;
-    }
-    try {
-        buffer.reserve(current_size + additional_space);
-    } catch (const std::length_error&) {
-        return false;
-    } catch (const std::bad_alloc&) {
-        return false;
-    }
-    return true;
-}
+
 bool insert_null(const nitrokv::protocol::RespTypePrefix prefix,
                  std::vector<std::byte>& buffer) noexcept {
     constexpr std::array payload = {std::byte{'-'}, std::byte{'1'}, std::byte{'\r'},
                                     std::byte{'\n'}};
-    if (!::reserve_space(payload.size() + nitrokv::protocol::PREFIX_LENGTH, buffer)) [[unlikely]] {
+    if (!nitrokv::protocol::detail::reserve_space(payload.size() + nitrokv::protocol::RESP_PREFIX_LENGTH, buffer)) [[unlikely]] {
         return false;
     }
     buffer.push_back(static_cast<std::byte>(prefix));
@@ -47,19 +35,19 @@ bool insert_simple_str(nitrokv::protocol::RespTypePrefix prefix,
                        std::string_view val,
                        std::vector<std::byte>& buffer) noexcept {
     const auto val_bytes = std::as_bytes(std::span(val));
-    if (std::ranges::find_first_of(val_bytes, SEP_BYTES) != val_bytes.end()) [[unlikely]] {
+    if (std::ranges::find_first_of(val_bytes, nitrokv::protocol::detail::SEP_BYTES) != val_bytes.end()) [[unlikely]] {
         return false;
     }
 
-    if (!::reserve_space(
-            val_bytes.size_bytes() + nitrokv::protocol::PREFIX_LENGTH + SEP_BYTES.size(), buffer))
+    if (!nitrokv::protocol::detail::reserve_space(
+            val_bytes.size_bytes() + nitrokv::protocol::RESP_PREFIX_LENGTH + nitrokv::protocol::detail::SEP_BYTES.size(), buffer))
         [[unlikely]] {
         return false;
     }
 
     buffer.push_back(static_cast<std::byte>(prefix));
     buffer.insert(buffer.end(), val_bytes.begin(), val_bytes.end());
-    buffer.insert(buffer.end(), SEP_BYTES.begin(), SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
     return true;
 }
 
@@ -80,7 +68,7 @@ std::span<char> integer_to_digits(const size_t val, std::span<char> buffer) noex
 namespace nitrokv::protocol {
 
 
-bool encode(const RespEncInteger val, std::vector<std::byte>& buffer) noexcept {
+bool encode(const RespInteger val, std::vector<std::byte>& buffer) noexcept {
     std::array<char, MAX_DIGITS_IN_NUMBER> digits; // NOLINT(*-member-init)
 
 
@@ -96,26 +84,29 @@ bool encode(const RespEncInteger val, std::vector<std::byte>& buffer) noexcept {
     if (digits_bytes.empty()) [[unlikely]] {
         return false;
     }
-    const size_t required_size = digits_bytes.size_bytes() + SEP_BYTES.size_bytes() + PREFIX_LENGTH;
-    if (!::reserve_space(required_size, buffer)) [[unlikely]] {
+    const size_t required_size = digits_bytes.size_bytes() + nitrokv::protocol::detail::SEP_BYTES.size_bytes() + RESP_PREFIX_LENGTH;
+    if (!nitrokv::protocol::detail::reserve_space(required_size, buffer)) [[unlikely]] {
         return false;
     }
     buffer.push_back(static_cast<std::byte>(RespTypePrefix::INTEGER));
     buffer.insert(buffer.end(), digits_bytes.begin(), digits_bytes.end());
-    buffer.insert(buffer.end(), SEP_BYTES.begin(), SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
     return true;
 }
 
-bool encode(const RespEncSimpleString val, std::vector<std::byte>& buffer) noexcept {
+bool encode(const RespSimpleString val, std::vector<std::byte>& buffer) noexcept {
     return insert_simple_str(RespTypePrefix::SIMPLE_STRING, val.value, buffer);
 }
 
-bool encode(const RespEncError val, std::vector<std::byte>& buffer) noexcept {
+bool encode(const RespError val, std::vector<std::byte>& buffer) noexcept {
     return insert_simple_str(RespTypePrefix::ERROR, val.value, buffer);
 }
 
+bool encode(std::monostate /*val*/, std::vector<std::byte>& /*buffer*/) noexcept {
+    return false;
+}
 
-bool encode(const RespEncArray& payload, std::vector<std::byte>& buffer) noexcept {
+bool encode(const RespArray& payload, std::vector<std::byte>& buffer) noexcept {
     std::array<char, MAX_DIGITS_IN_NUMBER> digits; // NOLINT(*-member-init)
     const std::span<const std::byte> digits_bytes =
         std::as_bytes(::integer_to_digits(payload.size(), digits));
@@ -123,15 +114,15 @@ bool encode(const RespEncArray& payload, std::vector<std::byte>& buffer) noexcep
         return false;
     }
     const size_t old_size = buffer.size();
-    const size_t required_size = digits_bytes.size_bytes() + SEP_BYTES.size_bytes() + PREFIX_LENGTH;
-    if (!::reserve_space(required_size, buffer)) [[unlikely]] {
+    const size_t required_size = digits_bytes.size_bytes() + nitrokv::protocol::detail::SEP_BYTES.size_bytes() + RESP_PREFIX_LENGTH;
+    if (!nitrokv::protocol::detail::reserve_space(required_size, buffer)) [[unlikely]] {
         return false;
     }
 
     buffer.push_back(static_cast<std::byte>(RespTypePrefix::ARRAY));
     buffer.insert(buffer.end(), digits_bytes.begin(), digits_bytes.end());
-    buffer.insert(buffer.end(), SEP_BYTES.begin(), SEP_BYTES.end());
-    for (const RespEncValue& elem : payload) {
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
+    for (const RespValue& elem : payload) {
         const bool elem_success =
             std::visit([&buffer](const auto& val) { return encode(val, buffer); }, elem.value);
         if (!elem_success) [[unlikely]] {
@@ -143,7 +134,7 @@ bool encode(const RespEncArray& payload, std::vector<std::byte>& buffer) noexcep
 }
 
 
-bool encode(const RespEncBulkString val, std::vector<std::byte>& buffer) noexcept {
+bool encode(const RespBulkString val, std::vector<std::byte>& buffer) noexcept {
     if (val.value.size() > MAX_BULK_STRING_LENGTH) [[unlikely]] {
         return false;
     }
@@ -155,24 +146,24 @@ bool encode(const RespEncBulkString val, std::vector<std::byte>& buffer) noexcep
         return false;
     }
     const size_t required_size =
-        digits_bytes.size_bytes() + val.value.size() + (SEPARATOR.size() * 2) + PREFIX_LENGTH;
-    if (!::reserve_space(required_size, buffer)) [[unlikely]] {
+        digits_bytes.size_bytes() + val.value.size() + (RESP_SEPARATOR.size() * 2) + RESP_PREFIX_LENGTH;
+    if (!nitrokv::protocol::detail::reserve_space(required_size, buffer)) [[unlikely]] {
         return false;
     }
     buffer.push_back(static_cast<std::byte>(RespTypePrefix::BULK_STRING));
     buffer.insert(buffer.end(), digits_bytes.begin(), digits_bytes.end());
-    buffer.insert(buffer.end(), SEP_BYTES.begin(), SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
     buffer.insert(buffer.end(), val.value.begin(), val.value.end());
-    buffer.insert(buffer.end(), SEP_BYTES.begin(), SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
     return true;
 }
 
 
-bool encode(RespEncNullBulkString /*unused*/, std::vector<std::byte>& buffer) noexcept {
+bool encode(RespNullBulkString /*unused*/, std::vector<std::byte>& buffer) noexcept {
     return ::insert_null(RespTypePrefix::BULK_STRING, buffer);
 }
 
-bool encode(RespEncNullArray /*unused*/, std::vector<std::byte>& buffer) noexcept {
+bool encode(RespNullArray /*unused*/, std::vector<std::byte>& buffer) noexcept {
     return ::insert_null(RespTypePrefix::ARRAY, buffer);
 }
 

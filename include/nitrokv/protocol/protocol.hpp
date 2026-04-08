@@ -12,9 +12,9 @@
 #include <vector>
 
 namespace nitrokv::protocol {
-inline constexpr std::array SEPARATOR{'\r', '\n'};
+inline constexpr std::array RESP_SEPARATOR{'\r', '\n'};
 
-inline constexpr size_t PREFIX_LENGTH = 1U;
+inline constexpr size_t RESP_PREFIX_LENGTH = 1U;
 
 enum class RespTypePrefix : char {
     INTEGER = ':',
@@ -24,38 +24,39 @@ enum class RespTypePrefix : char {
     ARRAY = '*',
 };
 
-static_assert(sizeof(RespTypePrefix) == PREFIX_LENGTH, "RespTypePrefix size mismatch!");
+static_assert(sizeof(RespTypePrefix) == RESP_PREFIX_LENGTH, "RespTypePrefix size mismatch!");
 
-struct RespEncNullArray {};
+struct RespValue;
 
-struct RespEncNullBulkString {};
+struct RespNullArray {};
 
-using RespEncInteger = int64_t;
+struct RespNullBulkString {};
 
-struct RespEncSimpleString { // NOLINT(altera-struct-pack-align)
+using RespInteger = int64_t;
+
+using RespArray = std::vector<RespValue>;
+
+struct RespSimpleString { // NOLINT(altera-struct-pack-align)
     std::string_view value;
 };
 
-struct RespEncError { // NOLINT(altera-struct-pack-align)
+struct RespError { // NOLINT(altera-struct-pack-align)
     std::string_view value;
 };
 
-struct RespEncBulkString { // NOLINT(altera-struct-pack-align)
+struct RespBulkString { // NOLINT(altera-struct-pack-align)
     std::span<const std::byte> value;
 };
 
-struct RespEncValue;
-
-using RespEncArray = std::vector<RespEncValue>;
-
-struct RespEncValue { // NOLINT(altera-struct-pack-align)
-    std::variant<RespEncInteger,
-                 RespEncSimpleString,
-                 RespEncBulkString,
-                 RespEncNullArray,
-                 RespEncNullBulkString,
-                 RespEncArray,
-                 RespEncError>
+struct RespValue { // NOLINT(altera-struct-pack-align)
+    std::variant<std::monostate,
+                 RespInteger,
+                 RespSimpleString,
+                 RespBulkString,
+                 RespNullArray,
+                 RespNullBulkString,
+                 RespArray,
+                 RespError>
         value;
 };
 

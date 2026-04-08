@@ -85,23 +85,23 @@ class RespEncodeIntegrationTest: public RespEncodeTestBase {};
 // ==========================================
 
 TEST_F(RespIntegerEncodeTest, EncodesPositiveValue) {
-    expect_encoded(proto::RespEncInteger{342}, ":342\r\n");
+    expect_encoded(proto::RespInteger{342}, ":342\r\n");
 }
 
 TEST_F(RespIntegerEncodeTest, EncodesNegativeValue) {
-    expect_encoded(proto::RespEncInteger{-342}, ":-342\r\n");
+    expect_encoded(proto::RespInteger{-342}, ":-342\r\n");
 }
 
 TEST_F(RespIntegerEncodeTest, EncodesZero) {
-    expect_encoded(proto::RespEncInteger{0}, ":0\r\n");
+    expect_encoded(proto::RespInteger{0}, ":0\r\n");
 }
 
 TEST_F(RespIntegerEncodeTest, EncodesMaxValue) {
-    expect_encoded(std::numeric_limits<proto::RespEncInteger>::max(), ":9223372036854775807\r\n");
+    expect_encoded(std::numeric_limits<proto::RespInteger>::max(), ":9223372036854775807\r\n");
 }
 
 TEST_F(RespIntegerEncodeTest, EncodesMinValue) {
-    expect_encoded(std::numeric_limits<proto::RespEncInteger>::min(), ":-9223372036854775808\r\n");
+    expect_encoded(std::numeric_limits<proto::RespInteger>::min(), ":-9223372036854775808\r\n");
 }
 
 // ==========================================
@@ -110,12 +110,12 @@ TEST_F(RespIntegerEncodeTest, EncodesMinValue) {
 
 TEST_F(RespBulkStringEncodeTest, EncodesSmallTextPayload) {
     constexpr std::string_view text = "NitroKV";
-    expect_encoded(proto::RespEncBulkString{std::as_bytes(std::span{text})}, "$7\r\nNitroKV\r\n");
+    expect_encoded(proto::RespBulkString{std::as_bytes(std::span{text})}, "$7\r\nNitroKV\r\n");
 }
 
 TEST_F(RespBulkStringEncodeTest, EncodesEmptyPayload) {
     constexpr std::string_view text = "";
-    expect_encoded(proto::RespEncBulkString{std::as_bytes(std::span{text})}, "$0\r\n\r\n");
+    expect_encoded(proto::RespBulkString{std::as_bytes(std::span{text})}, "$0\r\n\r\n");
 }
 
 TEST_F(RespBulkStringEncodeTest, AppendsToExistingBuffer) {
@@ -123,7 +123,7 @@ TEST_F(RespBulkStringEncodeTest, AppendsToExistingBuffer) {
 
     constexpr std::string_view text = "key";
     const bool success =
-        proto::encode(proto::RespEncBulkString{std::as_bytes(std::span{text})}, buffer_);
+        proto::encode(proto::RespBulkString{std::as_bytes(std::span{text})}, buffer_);
 
     EXPECT_TRUE(success);
     EXPECT_EQ(buffer_, to_bytes("*2\r\n$3\r\nkey\r\n"));
@@ -132,7 +132,7 @@ TEST_F(RespBulkStringEncodeTest, AppendsToExistingBuffer) {
 TEST_F(RespBulkStringEncodeTest, EncodesBinaryRandomPayload) {
     const ByteVec payload = generate_random_bytes(1000);
 
-    const bool success = proto::encode(proto::RespEncBulkString{payload}, buffer_);
+    const bool success = proto::encode(proto::RespBulkString{payload}, buffer_);
 
     EXPECT_TRUE(success);
     EXPECT_EQ(buffer_.size(), 1009U);
@@ -151,7 +151,7 @@ TEST_F(RespBulkStringEncodeTest, RejectsPayloadLargerThanLimit) {
     const std::span<const std::byte> fake_huge_payload(static_cast<const std::byte*>(nullptr),
                                                        overflow_size);
 
-    expect_encode_fail(proto::RespEncBulkString{fake_huge_payload});
+    expect_encode_fail(proto::RespBulkString{fake_huge_payload});
 }
 
 // ==========================================
@@ -159,30 +159,30 @@ TEST_F(RespBulkStringEncodeTest, RejectsPayloadLargerThanLimit) {
 // ==========================================
 
 TEST_F(RespSimpleStringEncodeTest, EncodesBasicText) {
-    expect_encoded(proto::RespEncSimpleString{"OK"}, "+OK\r\n");
+    expect_encoded(proto::RespSimpleString{"OK"}, "+OK\r\n");
 }
 
 TEST_F(RespSimpleStringEncodeTest, EncodesPongResponse) {
-    expect_encoded(proto::RespEncSimpleString{"PONG"}, "+PONG\r\n");
+    expect_encoded(proto::RespSimpleString{"PONG"}, "+PONG\r\n");
 }
 
 TEST_F(RespSimpleStringEncodeTest, EncodesEmptyString) {
-    expect_encoded(proto::RespEncSimpleString{""}, "+\r\n");
+    expect_encoded(proto::RespSimpleString{""}, "+\r\n");
 }
 
 TEST_F(RespSimpleStringEncodeTest, AppendsToExistingBuffer) {
     set_buffer("*2\r\n");
 
-    const bool success = proto::encode(proto::RespEncSimpleString{"QUEUED"}, buffer_);
+    const bool success = proto::encode(proto::RespSimpleString{"QUEUED"}, buffer_);
 
     EXPECT_TRUE(success);
     EXPECT_EQ(buffer_, to_bytes("*2\r\n+QUEUED\r\n"));
 }
 
 TEST_F(RespSimpleStringEncodeTest, RejectsCarriageReturnAndLineFeedInjection) {
-    expect_encode_fail(proto::RespEncSimpleString{"Hacked\r\n+OK"});
-    expect_encode_fail(proto::RespEncSimpleString{"Line1\nLine2"});
-    expect_encode_fail(proto::RespEncSimpleString{"Carriage\rReturn"});
+    expect_encode_fail(proto::RespSimpleString{"Hacked\r\n+OK"});
+    expect_encode_fail(proto::RespSimpleString{"Line1\nLine2"});
+    expect_encode_fail(proto::RespSimpleString{"Carriage\rReturn"});
 }
 
 // ==========================================
@@ -190,15 +190,15 @@ TEST_F(RespSimpleStringEncodeTest, RejectsCarriageReturnAndLineFeedInjection) {
 // ==========================================
 
 TEST_F(RespArrayEncodeTest, EncodesEmptyArray) {
-    proto::RespEncArray array;
+    proto::RespArray array;
     expect_encoded(array, "*0\r\n");
 }
 
 TEST_F(RespArrayEncodeTest, EncodesFlatMixedArray) {
-    proto::RespEncArray array;
+    proto::RespArray array;
     array.emplace_back(
-        proto::RespEncValue{proto::RespEncBulkString{std::as_bytes(std::span{"Nitro\r\n", 7})}});
-    array.emplace_back(proto::RespEncValue{proto::RespEncInteger{42}});
+        proto::RespValue{proto::RespBulkString{std::as_bytes(std::span{"Nitro\r\n", 7})}});
+    array.emplace_back(proto::RespValue{proto::RespInteger{42}});
 
     const bool success = proto::encode(array, buffer_);
 
@@ -207,12 +207,12 @@ TEST_F(RespArrayEncodeTest, EncodesFlatMixedArray) {
 }
 
 TEST_F(RespArrayEncodeTest, EncodesNestedArrays) {
-    proto::RespEncArray inner_array;
-    inner_array.emplace_back(proto::RespEncValue{proto::RespEncInteger{1}});
+    proto::RespArray inner_array;
+    inner_array.emplace_back(proto::RespValue{proto::RespInteger{1}});
 
-    proto::RespEncArray outer_array;
-    outer_array.emplace_back(proto::RespEncValue{std::move(inner_array)});
-    outer_array.emplace_back(proto::RespEncValue{proto::RespEncSimpleString{"OK"}});
+    proto::RespArray outer_array;
+    outer_array.emplace_back(proto::RespValue{std::move(inner_array)});
+    outer_array.emplace_back(proto::RespValue{proto::RespSimpleString{"OK"}});
 
     expect_encoded(outer_array, "*2\r\n*1\r\n:1\r\n+OK\r\n");
 }
@@ -220,8 +220,8 @@ TEST_F(RespArrayEncodeTest, EncodesNestedArrays) {
 TEST_F(RespArrayEncodeTest, AppendsToExistingBuffer) {
     set_buffer("+QUEUED\r\n");
 
-    proto::RespEncArray array;
-    array.emplace_back(proto::RespEncValue{proto::RespEncInteger{100}});
+    proto::RespArray array;
+    array.emplace_back(proto::RespValue{proto::RespInteger{100}});
 
     const bool success = proto::encode(array, buffer_);
 
@@ -234,24 +234,24 @@ TEST_F(RespArrayEncodeTest, AppendsToExistingBuffer) {
 // ==========================================
 
 TEST_F(RespErrorEncodeTest, EncodesStandardError) {
-    expect_encoded(proto::RespEncError{"ERR unknown command 'foobar'"},
+    expect_encoded(proto::RespError{"ERR unknown command 'foobar'"},
                    "-ERR unknown command 'foobar'\r\n");
 }
 
 TEST_F(RespErrorEncodeTest, EncodesEmptyError) {
-    expect_encoded(proto::RespEncError{""}, "-\r\n");
+    expect_encoded(proto::RespError{""}, "-\r\n");
 }
 
 TEST_F(RespErrorEncodeTest, RejectsCarriageReturnAndLineFeedInjection) {
-    expect_encode_fail(proto::RespEncError{"ERR message\rhacked"});
-    expect_encode_fail(proto::RespEncError{"ERR message\nhacked"});
-    expect_encode_fail(proto::RespEncError{"ERR\r\n+OK\r\n"});
+    expect_encode_fail(proto::RespError{"ERR message\rhacked"});
+    expect_encode_fail(proto::RespError{"ERR message\nhacked"});
+    expect_encode_fail(proto::RespError{"ERR\r\n+OK\r\n"});
 }
 
 TEST_F(RespErrorEncodeTest, AppendsToExistingBuffer) {
     set_buffer("*2\r\n");
 
-    const bool success = proto::encode(proto::RespEncError{"WRONGTYPE"}, buffer_);
+    const bool success = proto::encode(proto::RespError{"WRONGTYPE"}, buffer_);
 
     EXPECT_TRUE(success);
     EXPECT_EQ(buffer_, to_bytes("*2\r\n-WRONGTYPE\r\n"));
@@ -262,18 +262,18 @@ TEST_F(RespErrorEncodeTest, AppendsToExistingBuffer) {
 // ==========================================
 
 TEST_F(RespNullEncodeTest, EncodesNullBulkString) {
-    expect_encoded(proto::RespEncNullBulkString{}, "$-1\r\n");
+    expect_encoded(proto::RespNullBulkString{}, "$-1\r\n");
 }
 
 TEST_F(RespNullEncodeTest, EncodesNullArray) {
-    expect_encoded(proto::RespEncNullArray{}, "*-1\r\n");
+    expect_encoded(proto::RespNullArray{}, "*-1\r\n");
 }
 
 TEST_F(RespNullEncodeTest, AppendsNullValuesToExistingBuffer) {
     set_buffer("*3\r\n");
 
-    const bool success_bulk = proto::encode(proto::RespEncNullBulkString{}, buffer_);
-    const bool success_array = proto::encode(proto::RespEncNullArray{}, buffer_);
+    const bool success_bulk = proto::encode(proto::RespNullBulkString{}, buffer_);
+    const bool success_array = proto::encode(proto::RespNullArray{}, buffer_);
 
     EXPECT_TRUE(success_bulk);
     EXPECT_TRUE(success_array);
@@ -285,11 +285,11 @@ TEST_F(RespNullEncodeTest, AppendsNullValuesToExistingBuffer) {
 // ==========================================
 
 TEST_F(RespEncodeIntegrationTest, EncodesArrayWithMixedNullsAndErrors) {
-    proto::RespEncArray array;
+    proto::RespArray array;
     array.reserve(3);
-    array.push_back(proto::RespEncValue{proto::RespEncNullBulkString{}});
-    array.push_back(proto::RespEncValue{proto::RespEncError{"ERR foo"}});
-    array.push_back(proto::RespEncValue{proto::RespEncNullArray{}});
+    array.push_back(proto::RespValue{proto::RespNullBulkString{}});
+    array.push_back(proto::RespValue{proto::RespError{"ERR foo"}});
+    array.push_back(proto::RespValue{proto::RespNullArray{}});
 
     expect_encoded(array, "*3\r\n$-1\r\n-ERR foo\r\n*-1\r\n");
 }
@@ -298,10 +298,10 @@ TEST_F(RespEncodeIntegrationTest, RollsBackArrayOnElementFailure) {
     set_buffer("PREVIOUS_DATA");
     const ByteVec expected = buffer_;
 
-    proto::RespEncArray array;
-    array.push_back(proto::RespEncValue{proto::RespEncNullBulkString{}});
-    array.push_back(proto::RespEncValue{proto::RespEncError{"HACK\r\nED"}});
-    array.push_back(proto::RespEncValue{proto::RespEncNullArray{}});
+    proto::RespArray array;
+    array.push_back(proto::RespValue{proto::RespNullBulkString{}});
+    array.push_back(proto::RespValue{proto::RespError{"HACK\r\nED"}});
+    array.push_back(proto::RespValue{proto::RespNullArray{}});
 
     const bool success = proto::encode(array, buffer_);
 

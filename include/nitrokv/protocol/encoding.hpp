@@ -11,13 +11,13 @@
 namespace nitrokv::protocol {
 
 
-bool encode(RespEncInteger val, std::vector<std::byte>& buffer) noexcept;
-bool encode(RespEncSimpleString val, std::vector<std::byte>& buffer) noexcept;
-bool encode(RespEncError val, std::vector<std::byte>& buffer) noexcept;
-bool encode(const RespEncArray& payload, std::vector<std::byte>& buffer) noexcept;
-bool encode(RespEncBulkString val, std::vector<std::byte>& buffer) noexcept;
-bool encode(RespEncNullBulkString val, std::vector<std::byte>& buffer) noexcept;
-bool encode(RespEncNullArray val, std::vector<std::byte>& buffer) noexcept;
+bool encode(RespInteger val, std::vector<std::byte>& buffer) noexcept;
+bool encode(RespSimpleString val, std::vector<std::byte>& buffer) noexcept;
+bool encode(RespError val, std::vector<std::byte>& buffer) noexcept;
+bool encode(const RespArray& payload, std::vector<std::byte>& buffer) noexcept;
+bool encode(RespBulkString val, std::vector<std::byte>& buffer) noexcept;
+bool encode(RespNullBulkString val, std::vector<std::byte>& buffer) noexcept;
+bool encode(RespNullArray val, std::vector<std::byte>& buffer) noexcept;
 // template<typename T>
 // requires std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, RespEncNullBulkString> ||
 //          std::is_same_v<std::remove_cv_t<std::remove_reference_t<T>>, RespEncNullArray>

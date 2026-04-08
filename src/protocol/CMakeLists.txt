@@ -3,6 +3,7 @@ add_library(nitrokv_protocol STATIC
 #		command_parser.cpp
 		parser.cpp
 		encoding.cpp
+		decoding.cpp
 )
 
 target_link_libraries(nitrokv_protocol
