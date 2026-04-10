@@ -15,6 +15,7 @@ namespace nitrokv::protocol {
 inline constexpr std::array RESP_SEPARATOR{'\r', '\n'};
 
 inline constexpr size_t RESP_PREFIX_LENGTH = 1U;
+inline constexpr size_t RESP_SEPARATOR_LENGTH = 2U;
 
 enum class RespTypePrefix : char {
     INTEGER = ':',
