@@ -1,14 +1,13 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <gtest/gtest.h>
 #include <limits>
 #include <ranges>
 #include <span>
 #include <string_view>
 #include <variant>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "nitrokv/protocol/decoding.hpp"
 #include "nitrokv/protocol/protocol.hpp"
@@ -35,7 +34,7 @@ ByteVec bytes(std::initializer_list<std::byte> init) {
     return ByteVec(init);
 }
 
-class RespDecodeTest : public ::testing::Test {
+class RespDecodeTest: public ::testing::Test {
 protected:
     static std::span<const std::byte> as_input(const ByteVec& buffer) noexcept {
         return std::span<const std::byte>{buffer.data(), buffer.size()};
@@ -52,10 +51,8 @@ protected:
         validator(result.value);
     }
 
-    void expect_decode_failure(
-        const ByteVec& wire,
-        const proto::RespDecodingStatus expected_status
-    ) {
+    void expect_decode_failure(const ByteVec& wire,
+                               const proto::RespDecodingStatus expected_status) {
         const auto result = proto::decode(as_input(wire));
 
         EXPECT_EQ(result.status, expected_status);
@@ -63,11 +60,9 @@ protected:
     }
 
     template <typename Validator>
-    void expect_decode_first_success(
-        const ByteVec& wire,
-        std::string_view expected_remaining,
-        Validator&& validator
-    ) {
+    void expect_decode_first_success(const ByteVec& wire,
+                                     std::string_view expected_remaining,
+                                     Validator&& validator) {
         const auto result = proto::decode_first(as_input(wire));
 
         EXPECT_EQ(result.status, proto::RespDecodingStatus::SUCCESS);
@@ -77,10 +72,8 @@ protected:
         validator(result.value);
     }
 
-    void expect_decode_first_failure(
-        const ByteVec& wire,
-        const proto::RespDecodingStatus expected_status
-    ) {
+    void expect_decode_first_failure(const ByteVec& wire,
+                                     const proto::RespDecodingStatus expected_status) {
         const auto result = proto::decode_first(as_input(wire));
 
         EXPECT_EQ(result.status, expected_status);
@@ -135,29 +128,19 @@ TEST_F(RespDecodeTest, DecodeIntegerZero) {
 }
 
 TEST_F(RespDecodeTest, DecodeIntegerMax) {
-    expect_decode_success(
-        to_bytes(":9223372036854775807\r\n"),
-        [](const proto::RespValue& value) {
-            ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(value.value));
-            EXPECT_EQ(
-                std::get<proto::RespInteger>(value.value),
-                std::numeric_limits<std::int64_t>::max()
-            );
-        }
-    );
+    expect_decode_success(to_bytes(":9223372036854775807\r\n"), [](const proto::RespValue& value) {
+        ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(value.value));
+        EXPECT_EQ(std::get<proto::RespInteger>(value.value),
+                  std::numeric_limits<std::int64_t>::max());
+    });
 }
 
 TEST_F(RespDecodeTest, DecodeIntegerMin) {
-    expect_decode_success(
-        to_bytes(":-9223372036854775808\r\n"),
-        [](const proto::RespValue& value) {
-            ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(value.value));
-            EXPECT_EQ(
-                std::get<proto::RespInteger>(value.value),
-                std::numeric_limits<std::int64_t>::min()
-            );
-        }
-    );
+    expect_decode_success(to_bytes(":-9223372036854775808\r\n"), [](const proto::RespValue& value) {
+        ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(value.value));
+        EXPECT_EQ(std::get<proto::RespInteger>(value.value),
+                  std::numeric_limits<std::int64_t>::min());
+    });
 }
 
 TEST_F(RespDecodeTest, DecodeRejectsInvalidIntegerDigits) {
@@ -178,13 +161,10 @@ TEST_F(RespDecodeTest, DecodeRejectsExtraDataAfterInteger) {
 
 TEST_F(RespDecodeTest, DecodeFirstReturnsRemainingAfterInteger) {
     expect_decode_first_success(
-        to_bytes(":1\r\n+OK\r\n"),
-        "+OK\r\n",
-        [](const proto::RespValue& value) {
+        to_bytes(":1\r\n+OK\r\n"), "+OK\r\n", [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(value.value));
             EXPECT_EQ(std::get<proto::RespInteger>(value.value), 1);
-        }
-    );
+        });
 }
 
 // ==========================================
@@ -219,13 +199,10 @@ TEST_F(RespDecodeTest, DecodeSimpleStringRejectsExtraData) {
 
 TEST_F(RespDecodeTest, DecodeFirstReturnsRemainingAfterSimpleString) {
     expect_decode_first_success(
-        to_bytes("+OK\r\n:1\r\n"),
-        ":1\r\n",
-        [](const proto::RespValue& value) {
+        to_bytes("+OK\r\n:1\r\n"), ":1\r\n", [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespSimpleString>(value.value));
             EXPECT_EQ(std::get<proto::RespSimpleString>(value.value).value, "OK");
-        }
-    );
+        });
 }
 
 // ==========================================
@@ -233,13 +210,10 @@ TEST_F(RespDecodeTest, DecodeFirstReturnsRemainingAfterSimpleString) {
 // ==========================================
 
 TEST_F(RespDecodeTest, DecodeErrorBasic) {
-    expect_decode_success(
-        to_bytes("-ERR unknown command\r\n"),
-        [](const proto::RespValue& value) {
-            ASSERT_TRUE(std::holds_alternative<proto::RespError>(value.value));
-            EXPECT_EQ(std::get<proto::RespError>(value.value).value, "ERR unknown command");
-        }
-    );
+    expect_decode_success(to_bytes("-ERR unknown command\r\n"), [](const proto::RespValue& value) {
+        ASSERT_TRUE(std::holds_alternative<proto::RespError>(value.value));
+        EXPECT_EQ(std::get<proto::RespError>(value.value).value, "ERR unknown command");
+    });
 }
 
 TEST_F(RespDecodeTest, DecodeErrorEmpty) {
@@ -255,13 +229,10 @@ TEST_F(RespDecodeTest, DecodeErrorRejectsExtraData) {
 
 TEST_F(RespDecodeTest, DecodeFirstReturnsRemainingAfterError) {
     expect_decode_first_success(
-        to_bytes("-ERR bad\r\n:5\r\n"),
-        ":5\r\n",
-        [](const proto::RespValue& value) {
+        to_bytes("-ERR bad\r\n:5\r\n"), ":5\r\n", [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespError>(value.value));
             EXPECT_EQ(std::get<proto::RespError>(value.value).value, "ERR bad");
-        }
-    );
+        });
 }
 
 // ==========================================
@@ -290,15 +261,11 @@ TEST_F(RespDecodeTest, DecodeBulkStringNull) {
 }
 
 TEST_F(RespDecodeTest, DecodeBulkStringBinaryPayload) {
-    const ByteVec wire = bytes({
-        b('$'), b('5'), b('\r'), b('\n'),
-        std::byte{0x00}, b('\r'), b('\n'), std::byte{0xFF}, b('A'),
-        b('\r'), b('\n')
-    });
+    const ByteVec wire = bytes({b('$'), b('5'), b('\r'), b('\n'), std::byte{0x00}, b('\r'), b('\n'),
+                                std::byte{0xFF}, b('A'), b('\r'), b('\n')});
 
-    const ByteVec expected_payload = bytes({
-        std::byte{0x00}, b('\r'), b('\n'), std::byte{0xFF}, b('A')
-    });
+    const ByteVec expected_payload =
+        bytes({std::byte{0x00}, b('\r'), b('\n'), std::byte{0xFF}, b('A')});
 
     expect_decode_success(wire, [&](const proto::RespValue& value) {
         ASSERT_TRUE(std::holds_alternative<proto::RespBulkString>(value.value));
@@ -329,16 +296,11 @@ TEST_F(RespDecodeTest, DecodeBulkStringRejectsExtraData) {
 
 TEST_F(RespDecodeTest, DecodeFirstReturnsRemainingAfterBulkString) {
     expect_decode_first_success(
-        to_bytes("$3\r\nkey\r\n:1\r\n"),
-        ":1\r\n",
-        [](const proto::RespValue& value) {
+        to_bytes("$3\r\nkey\r\n:1\r\n"), ":1\r\n", [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespBulkString>(value.value));
-            EXPECT_TRUE(std::ranges::equal(
-                std::get<proto::RespBulkString>(value.value).value,
-                to_bytes("key")
-            ));
-        }
-    );
+            EXPECT_TRUE(std::ranges::equal(std::get<proto::RespBulkString>(value.value).value,
+                                           to_bytes("key")));
+        });
 }
 
 // ==========================================
@@ -364,8 +326,7 @@ TEST_F(RespDecodeTest, DecodeArrayRejectsLengthLessThanMinusOne) {
 
 TEST_F(RespDecodeTest, DecodeArrayFlatMixed) {
     expect_decode_success(
-        to_bytes("*3\r\n:42\r\n+OK\r\n$3\r\nkey\r\n"),
-        [](const proto::RespValue& value) {
+        to_bytes("*3\r\n:42\r\n+OK\r\n$3\r\nkey\r\n"), [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespArray>(value.value));
             const auto& array = std::get<proto::RespArray>(value.value);
 
@@ -378,39 +339,32 @@ TEST_F(RespDecodeTest, DecodeArrayFlatMixed) {
             EXPECT_EQ(std::get<proto::RespSimpleString>(array[1].value).value, "OK");
 
             ASSERT_TRUE(std::holds_alternative<proto::RespBulkString>(array[2].value));
-            EXPECT_TRUE(std::ranges::equal(
-                std::get<proto::RespBulkString>(array[2].value).value,
-                to_bytes("key")
-            ));
-        }
-    );
+            EXPECT_TRUE(std::ranges::equal(std::get<proto::RespBulkString>(array[2].value).value,
+                                           to_bytes("key")));
+        });
 }
 
 TEST_F(RespDecodeTest, DecodeArrayNested) {
-    expect_decode_success(
-        to_bytes("*2\r\n*1\r\n:1\r\n+OK\r\n"),
-        [](const proto::RespValue& value) {
-            ASSERT_TRUE(std::holds_alternative<proto::RespArray>(value.value));
-            const auto& outer = std::get<proto::RespArray>(value.value);
-            ASSERT_EQ(outer.size(), 2U);
+    expect_decode_success(to_bytes("*2\r\n*1\r\n:1\r\n+OK\r\n"), [](const proto::RespValue& value) {
+        ASSERT_TRUE(std::holds_alternative<proto::RespArray>(value.value));
+        const auto& outer = std::get<proto::RespArray>(value.value);
+        ASSERT_EQ(outer.size(), 2U);
 
-            ASSERT_TRUE(std::holds_alternative<proto::RespArray>(outer[0].value));
-            const auto& inner = std::get<proto::RespArray>(outer[0].value);
-            ASSERT_EQ(inner.size(), 1U);
+        ASSERT_TRUE(std::holds_alternative<proto::RespArray>(outer[0].value));
+        const auto& inner = std::get<proto::RespArray>(outer[0].value);
+        ASSERT_EQ(inner.size(), 1U);
 
-            ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(inner[0].value));
-            EXPECT_EQ(std::get<proto::RespInteger>(inner[0].value), 1);
+        ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(inner[0].value));
+        EXPECT_EQ(std::get<proto::RespInteger>(inner[0].value), 1);
 
-            ASSERT_TRUE(std::holds_alternative<proto::RespSimpleString>(outer[1].value));
-            EXPECT_EQ(std::get<proto::RespSimpleString>(outer[1].value).value, "OK");
-        }
-    );
+        ASSERT_TRUE(std::holds_alternative<proto::RespSimpleString>(outer[1].value));
+        EXPECT_EQ(std::get<proto::RespSimpleString>(outer[1].value).value, "OK");
+    });
 }
 
 TEST_F(RespDecodeTest, DecodeArrayWithNullsAndError) {
     expect_decode_success(
-        to_bytes("*3\r\n$-1\r\n-ERR foo\r\n*-1\r\n"),
-        [](const proto::RespValue& value) {
+        to_bytes("*3\r\n$-1\r\n-ERR foo\r\n*-1\r\n"), [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespArray>(value.value));
             const auto& array = std::get<proto::RespArray>(value.value);
             ASSERT_EQ(array.size(), 3U);
@@ -421,8 +375,7 @@ TEST_F(RespDecodeTest, DecodeArrayWithNullsAndError) {
             EXPECT_EQ(std::get<proto::RespError>(array[1].value).value, "ERR foo");
 
             ASSERT_TRUE(std::holds_alternative<proto::RespNullArray>(array[2].value));
-        }
-    );
+        });
 }
 
 TEST_F(RespDecodeTest, DecodeArrayRejectsTooFewElements) {
@@ -430,7 +383,8 @@ TEST_F(RespDecodeTest, DecodeArrayRejectsTooFewElements) {
 }
 
 TEST_F(RespDecodeTest, DecodeArrayRejectsInvalidElement) {
-    expect_decode_failure(to_bytes("*2\r\n:1\r\n!bad\r\n"), proto::RespDecodingStatus::INVALID_SYMBOL);
+    expect_decode_failure(to_bytes("*2\r\n:1\r\n!bad\r\n"),
+                          proto::RespDecodingStatus::INVALID_SYMBOL);
 }
 
 TEST_F(RespDecodeTest, DecodeArrayRejectsExtraData) {
@@ -439,15 +393,12 @@ TEST_F(RespDecodeTest, DecodeArrayRejectsExtraData) {
 
 TEST_F(RespDecodeTest, DecodeFirstReturnsRemainingAfterArray) {
     expect_decode_first_success(
-        to_bytes("*1\r\n:1\r\n+OK\r\n"),
-        "+OK\r\n",
-        [](const proto::RespValue& value) {
+        to_bytes("*1\r\n:1\r\n+OK\r\n"), "+OK\r\n", [](const proto::RespValue& value) {
             ASSERT_TRUE(std::holds_alternative<proto::RespArray>(value.value));
             const auto& array = std::get<proto::RespArray>(value.value);
             ASSERT_EQ(array.size(), 1U);
             ASSERT_TRUE(std::holds_alternative<proto::RespInteger>(array[0].value));
             EXPECT_EQ(std::get<proto::RespInteger>(array[0].value), 1);
-        }
-    );
+        });
 }
-}
+} // namespace

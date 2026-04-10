@@ -12,7 +12,7 @@ namespace nitrokv::protocol {
  * Внутренние функции используют поле remaining при рекурсивном парсинге.
  */
 
-enum class RespDecodingStatus: uint8_t {
+enum class RespDecodingStatus : uint8_t {
     SUCCESS,
     INVALID_SEPARATOR,
     INVALID_INTEGER,
@@ -26,7 +26,7 @@ enum class RespDecodingStatus: uint8_t {
 struct RespDecodingResult {               // NOLINT(altera-struct-pack-align)
     std::span<const std::byte> remaining; /**< Остаток буфера */
     RespValue value{};                    /**< Значение переменной, результат парсинга */
-    RespDecodingStatus status{};                    /**< Значение переменной, результат парсинга */
+    RespDecodingStatus status{};          /**< Значение переменной, результат парсинга */
 };
 
 /**

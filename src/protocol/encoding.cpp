@@ -3,7 +3,6 @@
 //
 
 #include "nitrokv/protocol/encoding.hpp"
-#include "nitrokv/protocol/detail.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -11,6 +10,8 @@
 #include <span>
 #include <stdexcept>
 #include <vector>
+
+#include "nitrokv/protocol/detail.hpp"
 namespace {
 
 
@@ -18,12 +19,12 @@ constexpr size_t MAX_DIGITS_IN_NUMBER = std::numeric_limits<int64_t>::digits10 +
 constexpr size_t MAX_BULK_STRING_LENGTH = 512ULL * 1024U * 1024U;
 
 
-
 bool insert_null(const nitrokv::protocol::RespTypePrefix prefix,
                  std::vector<std::byte>& buffer) noexcept {
     constexpr std::array payload = {std::byte{'-'}, std::byte{'1'}, std::byte{'\r'},
                                     std::byte{'\n'}};
-    if (!nitrokv::protocol::detail::reserve_space(payload.size() + nitrokv::protocol::RESP_PREFIX_LENGTH, buffer)) [[unlikely]] {
+    if (!nitrokv::protocol::detail::reserve_space(
+            payload.size() + nitrokv::protocol::RESP_PREFIX_LENGTH, buffer)) [[unlikely]] {
         return false;
     }
     buffer.push_back(static_cast<std::byte>(prefix));
@@ -35,19 +36,22 @@ bool insert_simple_str(nitrokv::protocol::RespTypePrefix prefix,
                        std::string_view val,
                        std::vector<std::byte>& buffer) noexcept {
     const auto val_bytes = std::as_bytes(std::span(val));
-    if (std::ranges::find_first_of(val_bytes, nitrokv::protocol::detail::SEP_BYTES) != val_bytes.end()) [[unlikely]] {
+    if (std::ranges::find_first_of(val_bytes, nitrokv::protocol::detail::SEP_BYTES) !=
+        val_bytes.end()) [[unlikely]] {
         return false;
     }
 
-    if (!nitrokv::protocol::detail::reserve_space(
-            val_bytes.size_bytes() + nitrokv::protocol::RESP_PREFIX_LENGTH + nitrokv::protocol::detail::SEP_BYTES.size(), buffer))
-        [[unlikely]] {
+    if (!nitrokv::protocol::detail::reserve_space(val_bytes.size_bytes() +
+                                                      nitrokv::protocol::RESP_PREFIX_LENGTH +
+                                                      nitrokv::protocol::detail::SEP_BYTES.size(),
+                                                  buffer)) [[unlikely]] {
         return false;
     }
 
     buffer.push_back(static_cast<std::byte>(prefix));
     buffer.insert(buffer.end(), val_bytes.begin(), val_bytes.end());
-    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(),
+                  nitrokv::protocol::detail::SEP_BYTES.end());
     return true;
 }
 
@@ -84,13 +88,16 @@ bool encode(const RespInteger val, std::vector<std::byte>& buffer) noexcept {
     if (digits_bytes.empty()) [[unlikely]] {
         return false;
     }
-    const size_t required_size = digits_bytes.size_bytes() + nitrokv::protocol::detail::SEP_BYTES.size_bytes() + RESP_PREFIX_LENGTH;
+    const size_t required_size = digits_bytes.size_bytes() +
+                                 nitrokv::protocol::detail::SEP_BYTES.size_bytes() +
+                                 RESP_PREFIX_LENGTH;
     if (!nitrokv::protocol::detail::reserve_space(required_size, buffer)) [[unlikely]] {
         return false;
     }
     buffer.push_back(static_cast<std::byte>(RespTypePrefix::INTEGER));
     buffer.insert(buffer.end(), digits_bytes.begin(), digits_bytes.end());
-    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(),
+                  nitrokv::protocol::detail::SEP_BYTES.end());
     return true;
 }
 
@@ -114,14 +121,17 @@ bool encode(const RespArray& payload, std::vector<std::byte>& buffer) noexcept {
         return false;
     }
     const size_t old_size = buffer.size();
-    const size_t required_size = digits_bytes.size_bytes() + nitrokv::protocol::detail::SEP_BYTES.size_bytes() + RESP_PREFIX_LENGTH;
+    const size_t required_size = digits_bytes.size_bytes() +
+                                 nitrokv::protocol::detail::SEP_BYTES.size_bytes() +
+                                 RESP_PREFIX_LENGTH;
     if (!nitrokv::protocol::detail::reserve_space(required_size, buffer)) [[unlikely]] {
         return false;
     }
 
     buffer.push_back(static_cast<std::byte>(RespTypePrefix::ARRAY));
     buffer.insert(buffer.end(), digits_bytes.begin(), digits_bytes.end());
-    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(),
+                  nitrokv::protocol::detail::SEP_BYTES.end());
     for (const RespValue& elem : payload) {
         const bool elem_success =
             std::visit([&buffer](const auto& val) { return encode(val, buffer); }, elem.value);
@@ -145,16 +155,18 @@ bool encode(const RespBulkString val, std::vector<std::byte>& buffer) noexcept {
     if (digits_bytes.empty()) [[unlikely]] {
         return false;
     }
-    const size_t required_size =
-        digits_bytes.size_bytes() + val.value.size() + (RESP_SEPARATOR.size() * 2) + RESP_PREFIX_LENGTH;
+    const size_t required_size = digits_bytes.size_bytes() + val.value.size() +
+                                 (RESP_SEPARATOR.size() * 2) + RESP_PREFIX_LENGTH;
     if (!nitrokv::protocol::detail::reserve_space(required_size, buffer)) [[unlikely]] {
         return false;
     }
     buffer.push_back(static_cast<std::byte>(RespTypePrefix::BULK_STRING));
     buffer.insert(buffer.end(), digits_bytes.begin(), digits_bytes.end());
-    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(),
+                  nitrokv::protocol::detail::SEP_BYTES.end());
     buffer.insert(buffer.end(), val.value.begin(), val.value.end());
-    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(), nitrokv::protocol::detail::SEP_BYTES.end());
+    buffer.insert(buffer.end(), nitrokv::protocol::detail::SEP_BYTES.begin(),
+                  nitrokv::protocol::detail::SEP_BYTES.end());
     return true;
 }
 

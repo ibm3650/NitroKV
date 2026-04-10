@@ -5,8 +5,8 @@
 #include <charconv>
 #include <concepts>
 #include <limits>
-#include <stdexcept>
 #include <span>
+#include <stdexcept>
 
 #include "nitrokv/protocol/protocol.hpp"
 
