@@ -1,4 +1,5 @@
-add_library(nitrokv_common INTERFACE)
+add_library(nitrokv_common INTERFACE
+        ../include/nitrokv/protocol/meta.hpp)
 target_include_directories(nitrokv_common
 		INTERFACE
 		${PROJECT_SOURCE_DIR}/include

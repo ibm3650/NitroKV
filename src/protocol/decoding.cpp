@@ -14,6 +14,7 @@
 
 #include "nitrokv/protocol/detail.hpp"
 
+
 namespace {
 nitrokv::protocol::RespDecodingResult decode_one(std::span<const std::byte> input) noexcept;
 

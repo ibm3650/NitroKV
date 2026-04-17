@@ -50,15 +50,15 @@ struct RespBulkString { // NOLINT(altera-struct-pack-align)
 };
 
 struct RespValue { // NOLINT(altera-struct-pack-align)
-    std::variant<std::monostate,
+    using Variant = std::variant<std::monostate,
                  RespInteger,
                  RespSimpleString,
                  RespBulkString,
                  RespNullArray,
                  RespNullBulkString,
                  RespArray,
-                 RespError>
-        value;
+                 RespError>;
+    Variant value;
 };
 
 

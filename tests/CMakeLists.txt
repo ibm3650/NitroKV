@@ -4,6 +4,7 @@ add_executable(nitrokv_tests
 		test.cpp
 		protocol_parser.cpp
 		protocol_decoding.cpp
+        protocol_commands.cpp
 )
 
 target_link_libraries(nitrokv_tests

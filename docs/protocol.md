@@ -59,7 +59,9 @@ EXPIRE
 
 TTL
 
-STATS
+STATS - TODO
+
+EXISTS
 
 
 # extras:
