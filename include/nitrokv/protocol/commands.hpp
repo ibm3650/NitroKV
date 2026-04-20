@@ -8,8 +8,9 @@
 #include <optional>
 #include <variant>
 
-#include "protocol.hpp"
+#include "nitrokv/protocol/protocol.hpp"
 
+namespace nitrokv::protocol {
 struct SetCommand {
     std::span<const std::byte> key;
     std::span<const std::byte> value;
@@ -59,11 +60,10 @@ enum class ParsingError : uint8_t {
     COMMAND_ARGS_IS_NOT_ARRAY,
     EMPTY_COMMAND,
     UNKNOWN_COMMAND,
-    INVALID_ARGUMENTS_NUM,
-    // INVALID_TTL_TYPE,
-    // INVALID_KEY_TYPE,
-    // INVALID_VALUE_TYPE,
+    INVALID_ARGUMENTS_NUM
 };
 using CmdParsingResult = std::expected<Command, ParsingError>;
 
-CmdParsingResult parser(const nitrokv::protocol::RespValue& args_raw);
+CmdParsingResult parser(const RespValue& args_raw);
+
+} // namespace nitrokv::protocol

@@ -30,8 +30,7 @@ struct aggregate_initializable_from_indices<T, std::index_sequence<Indices...>>
 
 template <typename T, std::size_t N>
 concept aggregate_initializable_with_n_args =
-    aggregate<T> &&
-    aggregate_initializable_from_indices<T, std::make_index_sequence<N>>::value;
+    aggregate<T> && aggregate_initializable_from_indices<T, std::make_index_sequence<N>>::value;
 
 
 template <aggregate T, std::size_t N, bool CanInitialize>
@@ -50,6 +49,3 @@ concept is_same_args_count = num_aggregate_fields<T>::value == N;
 
 template <aggregate T>
 constexpr std::size_t num_aggregate_fields_v = num_aggregate_fields<T>::value;
-
-
-
