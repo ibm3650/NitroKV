@@ -1,7 +1,7 @@
 add_library(nitrokv_protocol STATIC
 #		resp_serializer.cpp
 #		command_parser.cpp
-		parser.cpp
+        ../command/parser.cpp
 		encoding.cpp
 		decoding.cpp
 )

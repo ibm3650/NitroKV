@@ -10,12 +10,12 @@
 #include <string_view>
 #include <vector>
 
-#include "nitrokv/protocol/commands.hpp" // Подставь свой реальный header
+#include "../include/nitrokv/command/commands.hpp"
 #include "nitrokv/protocol/protocol.hpp"
 
 namespace {
 
-namespace proto = nitrokv::protocol;
+namespace proto = nitrokv::command;
 
 using ByteSpan = std::span<const std::byte>;
 
@@ -27,20 +27,22 @@ bool bytes_equal(ByteSpan actual, std::string_view expected) {
     return std::ranges::equal(actual, bytes_view(expected));
 }
 
-proto::RespValue make_bulk(std::string_view text) {
-    return proto::RespValue{.value = proto::RespBulkString{bytes_view(text)}};
+nitrokv::protocol::RespValue make_bulk(std::string_view text) {
+    return nitrokv::protocol::RespValue{.value =
+                                            nitrokv::protocol::RespBulkString{bytes_view(text)}};
 }
 
-proto::RespValue make_simple(std::string_view text) {
-    return proto::RespValue{.value = proto::RespSimpleString{text}};
+nitrokv::protocol::RespValue make_simple(std::string_view text) {
+    return nitrokv::protocol::RespValue{.value = nitrokv::protocol::RespSimpleString{text}};
 }
 
-proto::RespValue make_integer(proto::RespInteger value) {
-    return proto::RespValue{.value = value};
+nitrokv::protocol::RespValue make_integer(nitrokv::protocol::RespInteger value) {
+    return nitrokv::protocol::RespValue{.value = value};
 }
 
-proto::RespValue make_array(std::initializer_list<proto::RespValue> values) {
-    return proto::RespValue{.value = proto::RespArray{values}};
+nitrokv::protocol::RespValue
+make_array(std::initializer_list<nitrokv::protocol::RespValue> values) {
+    return nitrokv::protocol::RespValue{.value = nitrokv::protocol::RespArray{values}};
 }
 
 class CommandParserTest: public ::testing::Test {
@@ -67,22 +69,23 @@ protected:
 // ==========================================
 
 TEST_F(CommandParserTest, RejectsNonArrayRoot) {
-    const auto result = parser(make_bulk("GET"));
+    const auto result = nitrokv::command::parser(make_bulk("GET"));
     expect_error(result, proto::ParsingError::COMMAND_ARGS_IS_NOT_ARRAY);
 }
 
 TEST_F(CommandParserTest, RejectsEmptyCommandArray) {
-    const auto result = parser(make_array({}));
+    const auto result = nitrokv::command::parser(make_array({}));
     expect_error(result, proto::ParsingError::EMPTY_COMMAND);
 }
 
 TEST_F(CommandParserTest, RejectsNonBulkCommandName) {
-    const auto result = parser(make_array({make_simple("GET"), make_bulk("key")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_simple("GET"), make_bulk("key")}));
     expect_error(result, proto::ParsingError::INVALID_COMMAND_TYPE);
 }
 
 TEST_F(CommandParserTest, RejectsUnknownCommand) {
-    const auto result = parser(make_array({make_bulk("MGET"), make_bulk("key")}));
+    const auto result = nitrokv::command::parser(make_array({make_bulk("MGET"), make_bulk("key")}));
     expect_error(result, proto::ParsingError::UNKNOWN_COMMAND);
 }
 
@@ -91,14 +94,15 @@ TEST_F(CommandParserTest, RejectsUnknownCommand) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesPing) {
-    const auto result = parser(make_array({make_bulk("PING")}));
+    const auto result = nitrokv::command::parser(make_array({make_bulk("PING")}));
 
     const auto* command = expect_command<proto::PingCommand>(result);
     ASSERT_NE(command, nullptr);
 }
 
 TEST_F(CommandParserTest, RejectsPingWithArguments) {
-    const auto result = parser(make_array({make_bulk("PING"), make_bulk("payload")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("PING"), make_bulk("payload")}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENTS_NUM);
 }
@@ -108,7 +112,8 @@ TEST_F(CommandParserTest, RejectsPingWithArguments) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesGet) {
-    const auto result = parser(make_array({make_bulk("GET"), make_bulk("user:42")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("GET"), make_bulk("user:42")}));
 
     const auto* command = expect_command<proto::GetCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -116,14 +121,14 @@ TEST_F(CommandParserTest, ParsesGet) {
 }
 
 TEST_F(CommandParserTest, RejectsGetWithWrongArity) {
-    const auto result =
-        parser(make_array({make_bulk("GET"), make_bulk("key"), make_bulk("extra")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("GET"), make_bulk("key"), make_bulk("extra")}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENTS_NUM);
 }
 
 TEST_F(CommandParserTest, RejectsGetWithNonBulkArgument) {
-    const auto result = parser(make_array({make_bulk("GET"), make_integer(123)}));
+    const auto result = nitrokv::command::parser(make_array({make_bulk("GET"), make_integer(123)}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENT_TYPE);
 }
@@ -133,7 +138,8 @@ TEST_F(CommandParserTest, RejectsGetWithNonBulkArgument) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesDel) {
-    const auto result = parser(make_array({make_bulk("DEL"), make_bulk("cache-key")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("DEL"), make_bulk("cache-key")}));
 
     const auto* command = expect_command<proto::DelCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -145,7 +151,8 @@ TEST_F(CommandParserTest, ParsesDel) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesTtl) {
-    const auto result = parser(make_array({make_bulk("TTL"), make_bulk("session")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("TTL"), make_bulk("session")}));
 
     const auto* command = expect_command<proto::TtlCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -157,7 +164,8 @@ TEST_F(CommandParserTest, ParsesTtl) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesExists) {
-    const auto result = parser(make_array({make_bulk("EXISTS"), make_bulk("feature-flag")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("EXISTS"), make_bulk("feature-flag")}));
 
     const auto* command = expect_command<proto::ExistsCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -169,8 +177,8 @@ TEST_F(CommandParserTest, ParsesExists) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesSet) {
-    const auto result =
-        parser(make_array({make_bulk("SET"), make_bulk("token"), make_bulk("abc123")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("SET"), make_bulk("token"), make_bulk("abc123")}));
 
     const auto* command = expect_command<proto::SetCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -179,20 +187,22 @@ TEST_F(CommandParserTest, ParsesSet) {
 }
 
 TEST_F(CommandParserTest, RejectsSetWithWrongArity) {
-    const auto result = parser(make_array({make_bulk("SET"), make_bulk("token")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("SET"), make_bulk("token")}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENTS_NUM);
 }
 
 TEST_F(CommandParserTest, RejectsSetWithNonBulkKey) {
-    const auto result =
-        parser(make_array({make_bulk("SET"), make_integer(123), make_bulk("value")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("SET"), make_integer(123), make_bulk("value")}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENT_TYPE);
 }
 
 TEST_F(CommandParserTest, RejectsSetWithNonBulkValue) {
-    const auto result = parser(make_array({make_bulk("SET"), make_bulk("key"), make_integer(777)}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("SET"), make_bulk("key"), make_integer(777)}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENT_TYPE);
 }
@@ -202,8 +212,8 @@ TEST_F(CommandParserTest, RejectsSetWithNonBulkValue) {
 // ==========================================
 
 TEST_F(CommandParserTest, ParsesExpireWithoutOption) {
-    const auto result =
-        parser(make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60")}));
 
     const auto* command = expect_command<proto::ExpireCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -213,7 +223,7 @@ TEST_F(CommandParserTest, ParsesExpireWithoutOption) {
 }
 
 TEST_F(CommandParserTest, ParsesExpireWithNxOption) {
-    const auto result = parser(
+    const auto result = nitrokv::command::parser(
         make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60"), make_bulk("NX")}));
 
     const auto* command = expect_command<proto::ExpireCommand>(result);
@@ -224,7 +234,7 @@ TEST_F(CommandParserTest, ParsesExpireWithNxOption) {
 }
 
 TEST_F(CommandParserTest, ParsesExpireWithXxOption) {
-    const auto result = parser(
+    const auto result = nitrokv::command::parser(
         make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60"), make_bulk("XX")}));
 
     const auto* command = expect_command<proto::ExpireCommand>(result);
@@ -234,7 +244,7 @@ TEST_F(CommandParserTest, ParsesExpireWithXxOption) {
 }
 
 TEST_F(CommandParserTest, ParsesExpireWithGtOption) {
-    const auto result = parser(
+    const auto result = nitrokv::command::parser(
         make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60"), make_bulk("GT")}));
 
     const auto* command = expect_command<proto::ExpireCommand>(result);
@@ -244,7 +254,7 @@ TEST_F(CommandParserTest, ParsesExpireWithGtOption) {
 }
 
 TEST_F(CommandParserTest, ParsesExpireWithLtOption) {
-    const auto result = parser(
+    const auto result = nitrokv::command::parser(
         make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60"), make_bulk("LT")}));
 
     const auto* command = expect_command<proto::ExpireCommand>(result);
@@ -254,47 +264,49 @@ TEST_F(CommandParserTest, ParsesExpireWithLtOption) {
 }
 
 TEST_F(CommandParserTest, RejectsExpireWithWrongArity) {
-    const auto result = parser(make_array({make_bulk("EXPIRE"), make_bulk("temp")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("EXPIRE"), make_bulk("temp")}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENTS_NUM);
 }
 
 TEST_F(CommandParserTest, RejectsExpireWithNonBulkKey) {
-    const auto result = parser(make_array({make_bulk("EXPIRE"), make_integer(1), make_bulk("60")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("EXPIRE"), make_integer(1), make_bulk("60")}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENT_TYPE);
 }
 
 TEST_F(CommandParserTest, RejectsExpireWithNonBulkTtlArgument) {
-    const auto result =
-        parser(make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_integer(60)}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_integer(60)}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENT_TYPE);
 }
 
 TEST_F(CommandParserTest, RejectsExpireWithInvalidIntegerFormat) {
-    const auto result =
-        parser(make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("12x")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("12x")}));
 
     expect_error(result, proto::ParsingError::INVALID_INTEGER_FORMAT);
 }
 
 TEST_F(CommandParserTest, RejectsExpireWithNegativeTtl) {
-    const auto result =
-        parser(make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("-5")}));
+    const auto result = nitrokv::command::parser(
+        make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("-5")}));
 
     expect_error(result, proto::ParsingError::NEGATIVE_TTL_VALUE);
 }
 
 TEST_F(CommandParserTest, RejectsExpireWithUnknownOption) {
-    const auto result = parser(
+    const auto result = nitrokv::command::parser(
         make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60"), make_bulk("ZZ")}));
 
     expect_error(result, proto::ParsingError::UNKNOWN_PARAMETER_OPTION);
 }
 
 TEST_F(CommandParserTest, RejectsExpireWhenOptionHasWrongType) {
-    const auto result = parser(
+    const auto result = nitrokv::command::parser(
         make_array({make_bulk("EXPIRE"), make_bulk("temp"), make_bulk("60"), make_integer(1)}));
 
     expect_error(result, proto::ParsingError::INVALID_ARGUMENT_TYPE);
@@ -305,7 +317,8 @@ TEST_F(CommandParserTest, RejectsExpireWhenOptionHasWrongType) {
 // ==========================================
 
 TEST_F(CommandParserTest, AcceptsLowercaseCommandName) {
-    const auto result = parser(make_array({make_bulk("get"), make_bulk("alpha")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("get"), make_bulk("alpha")}));
 
     const auto* command = expect_command<proto::GetCommand>(result);
     ASSERT_NE(command, nullptr);
@@ -313,7 +326,8 @@ TEST_F(CommandParserTest, AcceptsLowercaseCommandName) {
 }
 
 TEST_F(CommandParserTest, AcceptsMixedCaseCommandName) {
-    const auto result = parser(make_array({make_bulk("eXiStS"), make_bulk("alpha")}));
+    const auto result =
+        nitrokv::command::parser(make_array({make_bulk("eXiStS"), make_bulk("alpha")}));
 
     const auto* command = expect_command<proto::ExistsCommand>(result);
     ASSERT_NE(command, nullptr);

@@ -1,7 +1,9 @@
-//
-// Created by nikita on 17.04.2026.
-//
 
+/**
+* @file commands.hpp
+ * @date 17.04.2026
+ * @author nikita
+ */
 #pragma once
 #include <chrono>
 #include <expected>
@@ -10,7 +12,7 @@
 
 #include "nitrokv/protocol/protocol.hpp"
 
-namespace nitrokv::protocol {
+namespace nitrokv::command {
 struct SetCommand {
     std::span<const std::byte> key;
     std::span<const std::byte> value;
@@ -64,6 +66,6 @@ enum class ParsingError : uint8_t {
 };
 using CmdParsingResult = std::expected<Command, ParsingError>;
 
-CmdParsingResult parser(const RespValue& args_raw);
+CmdParsingResult parser(const protocol::RespValue& args_raw);
 
 } // namespace nitrokv::protocol

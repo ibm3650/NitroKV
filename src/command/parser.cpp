@@ -13,8 +13,8 @@
 #include <span>
 #include <string_view>
 
-#include "nitrokv/protocol/commands.hpp"
-#include "nitrokv/protocol/meta.hpp"
+#include "../../include/nitrokv/command/commands.hpp"
+#include "../../include/nitrokv/command/meta.hpp"
 #include "nitrokv/protocol/protocol.hpp"
 
 namespace {
@@ -38,69 +38,69 @@ try_get_bulk_string_bytes(const nitrokv::protocol::RespValue& resp_value) noexce
 
 template <typename T>
     requires is_same_args_count<T, 1>
-[[nodiscard]] std::expected<T, nitrokv::protocol::ParsingError>
+[[nodiscard]] std::expected<T, nitrokv::command::ParsingError>
 parse_unary_command(const std::span<const nitrokv::protocol::RespValue>& args) noexcept {
     auto bulk_or_none = try_get_bulk_string_bytes(args[0]);
     if (!bulk_or_none) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_ARGUMENT_TYPE);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_ARGUMENT_TYPE);
     }
     return T{*bulk_or_none};
 }
 
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_ping(const std::span<const nitrokv::protocol::RespValue> /*args*/) {
-    return nitrokv::protocol::PingCommand{};
+    return nitrokv::command::PingCommand{};
 }
 
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_get(const std::span<const nitrokv::protocol::RespValue> args) {
-    return parse_unary_command<nitrokv::protocol::GetCommand>(args);
+    return parse_unary_command<nitrokv::command::GetCommand>(args);
 }
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_del(const std::span<const nitrokv::protocol::RespValue> args) {
-    return parse_unary_command<nitrokv::protocol::DelCommand>(args);
+    return parse_unary_command<nitrokv::command::DelCommand>(args);
 }
 
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_ttl(const std::span<const nitrokv::protocol::RespValue> args) {
-    return parse_unary_command<nitrokv::protocol::TtlCommand>(args);
+    return parse_unary_command<nitrokv::command::TtlCommand>(args);
 }
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_exists(const std::span<const nitrokv::protocol::RespValue> args) {
-    return parse_unary_command<nitrokv::protocol::ExistsCommand>(args);
+    return parse_unary_command<nitrokv::command::ExistsCommand>(args);
 }
 
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_set(const std::span<const nitrokv::protocol::RespValue> args) {
     const auto key = try_get_bulk_string_bytes(args[0]);
     const auto value = try_get_bulk_string_bytes(args[1]);
     if (!key) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_ARGUMENT_TYPE);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_ARGUMENT_TYPE);
     }
     if (!value) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_ARGUMENT_TYPE);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_ARGUMENT_TYPE);
     }
-    return nitrokv::protocol::SetCommand{*key, *value};
+    return nitrokv::command::SetCommand{*key, *value};
 }
 
 
-nitrokv::protocol::CmdParsingResult
+nitrokv::command::CmdParsingResult
 parse_expire(const std::span<const nitrokv::protocol::RespValue> args) {
     // EXPIRE key seconds [NX | XX | GT | LT]
     const auto key = try_get_bulk_string_bytes(args[0]);
     if (!key) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_ARGUMENT_TYPE);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_ARGUMENT_TYPE);
     }
 
     const auto ttl_raw = try_get_bulk_string_bytes(args[1]);
     if (!ttl_raw) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_ARGUMENT_TYPE);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_ARGUMENT_TYPE);
     }
 
 
@@ -109,38 +109,37 @@ parse_expire(const std::span<const nitrokv::protocol::RespValue> args) {
     const size_t input_length = ttl_raw->size();
     const auto [ptr, ec] = std::from_chars(input_as_char, input_as_char + input_length, ttl);
     if (ec != std::errc{} || ptr != input_as_char + input_length) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_INTEGER_FORMAT);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_INTEGER_FORMAT);
     }
     if (ttl < 0) {
-        return std::unexpected(nitrokv::protocol::ParsingError::NEGATIVE_TTL_VALUE);
+        return std::unexpected(nitrokv::command::ParsingError::NEGATIVE_TTL_VALUE);
     }
     if (args.size() == 2U) {
-        return nitrokv::protocol::ExpireCommand{*key, std::chrono::seconds{ttl}};
+        return nitrokv::command::ExpireCommand{*key, std::chrono::seconds{ttl}};
     }
 
     const auto comparison_arg = try_get_bulk_string_bytes(args[2]);
     if (!comparison_arg) {
-        return std::unexpected(nitrokv::protocol::ParsingError::INVALID_ARGUMENT_TYPE);
+        return std::unexpected(nitrokv::command::ParsingError::INVALID_ARGUMENT_TYPE);
     }
 
-    nitrokv::protocol::ExpireCommand::ComparisonType ct;
+    nitrokv::command::ExpireCommand::ComparisonType ct;
     if (std::ranges::equal(std::as_bytes(std::span("NX", 2)), *comparison_arg)) {
-        ct = nitrokv::protocol::ExpireCommand::ComparisonType ::NX;
+        ct = nitrokv::command::ExpireCommand::ComparisonType ::NX;
     } else if (std::ranges::equal(std::as_bytes(std::span("XX", 2)), *comparison_arg)) {
-        ct = nitrokv::protocol::ExpireCommand::ComparisonType ::XX;
+        ct = nitrokv::command::ExpireCommand::ComparisonType ::XX;
     } else if (std::ranges::equal(std::as_bytes(std::span("GT", 2)), *comparison_arg)) {
-        ct = nitrokv::protocol::ExpireCommand::ComparisonType ::GT;
+        ct = nitrokv::command::ExpireCommand::ComparisonType ::GT;
     } else if (std::ranges::equal(std::as_bytes(std::span("LT", 2)), *comparison_arg)) {
-        ct = nitrokv::protocol::ExpireCommand::ComparisonType ::LT;
+        ct = nitrokv::command::ExpireCommand::ComparisonType ::LT;
     } else {
-        return std::unexpected(nitrokv::protocol::ParsingError::UNKNOWN_PARAMETER_OPTION);
+        return std::unexpected(nitrokv::command::ParsingError::UNKNOWN_PARAMETER_OPTION);
     }
-    return nitrokv::protocol::ExpireCommand{*key, std::chrono::seconds{ttl}, ct};
+    return nitrokv::command::ExpireCommand{*key, std::chrono::seconds{ttl}, ct};
 }
 
 struct CommandDescription {
-    nitrokv::protocol::CmdParsingResult (*cmd_parser)(
-        std::span<const nitrokv::protocol::RespValue>);
+    nitrokv::command::CmdParsingResult (*cmd_parser)(std::span<const nitrokv::protocol::RespValue>);
     struct {
         size_t min;
         size_t max;
@@ -160,9 +159,9 @@ constexpr auto COMMAND_TABLE = std::to_array<std::pair<std::string_view, Command
 
 } // namespace
 
-namespace nitrokv::protocol {
-CmdParsingResult parser(const RespValue& args_raw) {
-    const auto* args = std::get_if<RespArray>(&args_raw.value);
+namespace nitrokv::command {
+CmdParsingResult parser(const protocol::RespValue& args_raw) {
+    const auto* args = std::get_if<protocol::RespArray>(&args_raw.value);
     if (args == nullptr) {
         return std::unexpected(ParsingError::COMMAND_ARGS_IS_NOT_ARRAY);
     }
@@ -192,4 +191,4 @@ CmdParsingResult parser(const RespValue& args_raw) {
     }
     return descriptor.cmd_parser(std::span(*args).subspan(1));
 }
-} // namespace nitrokv::protocol
+} // namespace nitrokv::command
