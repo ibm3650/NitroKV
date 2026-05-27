@@ -8,100 +8,92 @@
 #include <list>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 #include "nitrokv/core/cache.hpp"
 #include "nitrokv/core/results.hpp"
 
-namespace nitrokv::core {
-struct Entry;
-using BytesT = std::vector<std::byte>;
 
-constexpr size_t TIMING_WHEEL_SLOTS{60};
-constexpr size_t LRU_SLOTS_MAX{64};
-static std::array<std::list<Entry*>, TIMING_WHEEL_SLOTS> timing_wheel_slots{};
+namespace {
 
-struct Entry {
-    std::optional<std::chrono::seconds> ttl; // Опционально, время жизни ключа
-    // относительно его вставки ts
+std::list<nitrokv::core::Entry*> lru;
+struct FNVHasher {
+    std::size_t operator()(const nitrokv::core::BytesT& bytes) const noexcept {
+        size_t hval = 1469598103934665603ULL;
 
-    std::chrono::time_point<std::chrono::steady_clock> ts; // Временная метка вставки в таблицу
-
-
-    BytesT value; // Владеющее хранение значения
-
-    std::list<Entry*>::iterator
-        lru_it; // Если запрос на удаление по ключу, нужно знать, кого удалить
-    // из списка
-
-    const BytesT*
-        key; // Невладеющее хранение ключа, нужен, при запросе на удаление от таймера, или при
-    // удалении хвоста при вставке.
-
-    size_t tw_rounds; // Количество оборотов колесика, если значение tll больше полного оборота
-    size_t timing_wheel_slot; // Ячейка в колесике, для получения списка ключей на удаление
-
-    std::list<Entry*>::iterator
-        tw_it; // Итератор на узел списка, полученного по индексу timing_wheel_slot
-    // Необходим если значение удаляется вытеснением или вручную
-};
-
-std::list<Entry*> lru;
-
-
-struct BytesHasher {
-    std::size_t operator()(const BytesT& bytes) const noexcept {
-        std::size_t hash = 1469598103934665603ULL; // FNV-1a 64-bit basis
-
-        for (std::byte b : bytes) {
-            hash ^= static_cast<std::size_t>(std::to_integer<unsigned char>(b));
-            hash *= 1099511628211ULL;
+        for (const std::byte b : bytes) {
+            hval ^= static_cast<size_t>(std::to_integer<unsigned char>(b));
+            hval *= 1099511628211ULL;
         }
 
-        return hash;
+        return hval;
     }
 };
 
-std::unordered_map<BytesT, Entry, BytesHasher> index_map{};
+std::unordered_map<nitrokv::core::BytesT, nitrokv::core::Entry, FNVHasher> index_map{};
 
+nitrokv::core::TimingWheel<nitrokv::core::Entry*> timing_wheel;
 
-// struct Shard {
-//     using ListIt = std::list<Entry>::iterator;
-//
-//     std::mutex mutex;
-//     std::list<Entry> lru;
-//     std::unordered_map<Key, ListIt> index;
-// };
+void cancel_ttl(nitrokv::core::Entry& entry) {
+    if (entry.tw_position) {
+        timing_wheel.cancel(*entry.tw_position);
+        entry.tw_position = std::nullopt;
+    }
+
+    entry.expire_at = std::nullopt;
+}
+void erase_entry(nitrokv::core::Entry& entry) {
+    cancel_ttl(entry);
+
+    lru.erase(entry.lru_it);
+
+    index_map.erase(*entry.key);
+}
+[[nodiscard]] bool is_expired(const nitrokv::core::Entry& entry,
+                              const std::chrono::steady_clock::time_point now) noexcept {
+    return entry.expire_at && *entry.expire_at <= now;
+}
+
+} // namespace
+
+namespace nitrokv::core {
+
 
 CoreStatusCode cache_push(const BytesViewT key, const BytesViewT val) {
+    // Поиск уже существующего вхождения, без добавления нового
     auto it = index_map.find({key.begin(), key.end()});
     if (it != index_map.end()) {
+        // По правилу LRU переместить в начало данную запись
         lru.splice(lru.begin(), lru, it->second.lru_it);
-        it->second.lru_it = lru.begin();
-        it->second.value.assign_range(val);
-        // TODO:Сбрасывать TTL
+        auto& entry = it->second;
+        entry.lru_it = lru.begin();
+        entry.value.assign_range(val);
+        // Cброс TTL
+        cancel_ttl(entry);
         return CoreStatusCode::NO_ERRORS;
     }
 
+    // Вытеснение последнего, найменее значимого элемента по правилу LRU, если достигнут лимит
+    // занятых слотов
     if (index_map.size() >= LRU_SLOTS_MAX) {
-        auto last = lru.back();
-        if (last->ttl) {
-            timing_wheel_slots[last->timing_wheel_slot].erase(last->tw_it);
-        }
-        lru.pop_back();
-        index_map.erase(*last->key);
+        erase_entry(*lru.back());
     }
 
-    auto [new_it, state] =
-        index_map.emplace(BytesT{key.begin(), key.end()}, Entry{
-                                                              .ttl{std::nullopt},
-                                                              .ts{std::chrono::steady_clock::now()},
-                                                              .value{val.begin(), val.end()},
-                                                          });
-
-    new_it->second.key = &new_it->first;
-    lru.emplace_front(&new_it->second);
-    new_it->second.lru_it = lru.begin();
-    return CoreStatusCode::NO_ERRORS;
+    try {
+        // Вставка нового значения в хеш-таблицу
+        auto [new_it, state] =
+            index_map.emplace(BytesT{key.begin(), key.end()}, Entry{
+                                                                  .value{val.begin(), val.end()},
+                                                              });
+        // Сохранение указателя на ключ
+        new_it->second.key = &new_it->first;
+        // Вставка нового значения в начало списка в соответствии с LRU
+        lru.emplace_front(&new_it->second);
+        new_it->second.lru_it = lru.begin();
+        return CoreStatusCode::NO_ERRORS;
+    } catch (const std::bad_alloc&) {
+        return CoreStatusCode::OUT_OF_MEMORY;
+    }
 }
 
 bool cache_pop(const BytesViewT key) {
@@ -110,82 +102,124 @@ bool cache_pop(const BytesViewT key) {
     if (it == index_map.end()) {
         return false;
     }
-
-    if (it->second.ttl) {
-        timing_wheel_slots[it->second.timing_wheel_slot].erase(it->second.tw_it);
-    }
-    lru.erase(it->second.lru_it);
-    index_map.erase(it);
+    erase_entry(it->second);
     return true;
 }
 
 
 [[nodiscard]] bool cache_contains(const BytesViewT key) {
-    return index_map.contains({key.begin(), key.end()});
-}
-
-
-[[nodiscard]] std::expected<std::chrono::seconds, CoreStatusCode>
-cache_get_ttl(const BytesViewT key)  {
-    const auto it = index_map.find({key.begin(), key.end()});
-
-    if (it == index_map.end()) {
-        return std::unexpected(CoreStatusCode::KEY_NOT_FOUND);
-    }
-    if (!it->second.ttl) {
-        return std::unexpected{CoreStatusCode::TTL_NOT_SET};
-    }
-
-    return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() -
-                                                            it->second.ts + *it->second.ttl);
-}
-
-size_t round_start_ts() {
-    return {};
-}
-
-
-size_t current_ts() {
-    return {};
-}
-
-auto set_into_wheel(Entry* ptr, std::chrono::seconds ttl) {
-    const int  free_ticks_curr = TIMING_WHEEL_SLOTS - current_ts() - round_start_ts();
-    size_t ticks = std::max(0, static_cast<int>(ttl.count()) - free_ticks_curr) % TIMING_WHEEL_SLOTS;
-    size_t rounds = (ticks ? 1 : 0) + free_ticks_curr / TIMING_WHEEL_SLOTS;
-    ptr->ttl = ttl;
-    ptr->timing_wheel_slot = ticks;
-    ptr->tw_rounds = rounds;
-    // timing_wheel_slots[ticks].push_back(ptr);
-    return timing_wheel_slots[ticks].insert(timing_wheel_slots[ticks].begin(),ptr);
-}
-
-bool cache_set_ttl(const BytesViewT key, std::chrono::seconds ttl) noexcept {
-    const auto it = index_map.find({key.begin(), key.end()});
+    const auto it = index_map.find(BytesT{key.begin(), key.end()});
 
     if (it == index_map.end()) {
         return false;
     }
 
-    if (it->second.ttl) {
-        timing_wheel_slots[it->second.timing_wheel_slot].erase(it->second.tw_it);
+    Entry& entry = it->second;
+    const auto now = std::chrono::steady_clock::now();
+
+    if (is_expired(entry, now)) {
+        erase_entry(entry);
+        return false;
     }
-    it->second.tw_it = set_into_wheel(&it->second, ttl);
-    it->second.ts = std::chrono::steady_clock::now();
+
     return true;
 }
 
-[[nodiscard]] std::optional<BytesViewT> cache_get(const BytesViewT key) noexcept {
-    const auto it = index_map.find({key.begin(), key.end()});
+bool cache_set_ttl(const BytesViewT key, const std::chrono::seconds ttl) {
+    const auto it = index_map.find(BytesT{key.begin(), key.end()});
+
+    if (it == index_map.end()) {
+        return false;
+    }
+
+    Entry& entry = it->second;
+
+    if (ttl <= std::chrono::seconds{0}) {
+        erase_entry(entry);
+        return true;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+
+    if (is_expired(entry, now)) {
+        erase_entry(entry);
+        return false;
+    }
+
+    if (entry.tw_position) {
+        timing_wheel.cancel(*entry.tw_position);
+        entry.tw_position = std::nullopt;
+    }
+
+    entry.expire_at = now + ttl;
+    entry.tw_position = timing_wheel.schedule(&entry, ttl);
+
+    return true;
+}
+
+
+[[nodiscard]] std::expected<std::chrono::seconds, CoreStatusCode>
+cache_get_ttl(const BytesViewT key) {
+    const auto it = index_map.find(BytesT{key.begin(), key.end()});
+
+    if (it == index_map.end()) {
+        return std::unexpected(CoreStatusCode::KEY_NOT_FOUND);
+    }
+
+    Entry& entry = it->second;
+    const auto now = std::chrono::steady_clock::now();
+
+    if (is_expired(entry, now)) {
+        erase_entry(entry);
+        return std::unexpected(CoreStatusCode::KEY_NOT_FOUND);
+    }
+
+    if (!entry.expire_at) {
+        return std::unexpected(CoreStatusCode::TTL_NOT_SET);
+    }
+
+    return std::chrono::duration_cast<std::chrono::seconds>(*entry.expire_at - now);
+}
+
+[[nodiscard]] std::optional<BytesViewT> cache_get(const BytesViewT key) {
+    const auto it = index_map.find(BytesT{key.begin(), key.end()});
 
     if (it == index_map.end()) {
         return std::nullopt;
     }
-    return std::span<const std::byte>{it->second.value};
+
+    Entry& entry = it->second;
+    const auto now = std::chrono::steady_clock::now();
+
+    if (is_expired(entry, now)) {
+        erase_entry(entry);
+        return std::nullopt;
+    }
+
+    lru.splice(lru.begin(), lru, entry.lru_it);
+    entry.lru_it = lru.begin();
+
+    return BytesViewT{entry.value};
 }
 
 
+void cache_tick_expiration() {
+    const auto now = std::chrono::steady_clock::now();
 
+    timing_wheel.tick([&](Entry* entry) {
+        if (entry == nullptr) {
+            return;
+        }
 
+        // Timer-node уже удалён самим wheel.tick().
+        entry->tw_position = std::nullopt;
+
+        if (!entry->expire_at || *entry->expire_at > now) {
+            return;
+        }
+
+        erase_entry(*entry);
+    });
+}
 
 } // namespace nitrokv::core
